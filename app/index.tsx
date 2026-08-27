@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -32,7 +33,9 @@ export default function VillageScreen() {
     reset,
   } = useGame();
   const { width, height } = useWindowDimensions();
-  const mapH = Math.max(280, height * 0.42);
+  const sideW = Math.min(320, Math.max(240, width * 0.34));
+  const mapW = width - sideW;
+  const mapH = height;
 
   useEffect(() => {
     if (!message) return;
@@ -50,36 +53,45 @@ export default function VillageScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ResourceBar />
-      <EraStrip />
-      <IsometricWorld
-        state={state}
-        width={width}
-        height={mapH}
-        selectedBuildingId={selectedBuildingId}
-        onSelectBuilding={setSelectedBuildingId}
-        onTapTile={(gx, gy) => {
-          if (placementBuilding) place(placementBuilding, gx, gy);
-        }}
-      />
-      {message ? (
-        <View style={styles.toast}>
-          <Text style={styles.toastText}>{message}</Text>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={styles.row}>
+        <View style={[styles.mapCol, { width: mapW, height: mapH }]}>
+          <IsometricWorld
+            state={state}
+            width={mapW}
+            height={mapH}
+            selectedBuildingId={selectedBuildingId}
+            onSelectBuilding={setSelectedBuildingId}
+            onTapTile={(gx, gy) => {
+              if (placementBuilding) place(placementBuilding, gx, gy);
+            }}
+          />
+          {message ? (
+            <View style={styles.toast}>
+              <Text style={styles.toastText}>{message}</Text>
+            </View>
+          ) : null}
         </View>
-      ) : null}
-      <SelectedBuildingPanel />
-      <BuildPanel />
-      <TrainPanel />
-      <View style={styles.footer}>
-        <Link href="/missions" asChild>
-          <Pressable style={styles.footerBtn}>
-            <Text style={styles.footerBtnText}>Missioni</Text>
-          </Pressable>
-        </Link>
-        <Pressable style={[styles.footerBtn, styles.danger]} onPress={() => void reset()}>
-          <Text style={styles.footerBtnText}>Nuova partita</Text>
-        </Pressable>
+
+        <View style={[styles.side, { width: sideW }]}>
+          <ScrollView contentContainerStyle={styles.sideContent}>
+            <ResourceBar />
+            <EraStrip />
+            <SelectedBuildingPanel />
+            <BuildPanel />
+            <TrainPanel />
+            <View style={styles.footer}>
+              <Link href="/missions" asChild>
+                <Pressable style={styles.footerBtn}>
+                  <Text style={styles.footerBtnText}>Missioni</Text>
+                </Pressable>
+              </Link>
+              <Pressable style={[styles.footerBtn, styles.danger]} onPress={() => void reset()}>
+                <Text style={styles.footerBtnText}>Nuova</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -87,6 +99,14 @@ export default function VillageScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1B4332' },
+  row: { flex: 1, flexDirection: 'row' },
+  mapCol: { position: 'relative' },
+  side: {
+    backgroundColor: 'rgba(10,20,12,0.96)',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: '#4CAF50',
+  },
+  sideContent: { paddingBottom: 16 },
   loading: {
     flex: 1,
     backgroundColor: '#1B4332',
@@ -97,7 +117,7 @@ const styles = StyleSheet.create({
   loadingText: { color: '#C8E6C9' },
   toast: {
     position: 'absolute',
-    top: 120,
+    top: 16,
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.8)',
     paddingHorizontal: 14,
@@ -110,15 +130,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     padding: 10,
-    backgroundColor: 'rgba(10,20,12,0.95)',
   },
   footerBtn: {
     flex: 1,
     backgroundColor: '#2E7D32',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
   danger: { backgroundColor: '#5D4037' },
-  footerBtnText: { color: '#E8F5E9', fontWeight: '800' },
+  footerBtnText: { color: '#E8F5E9', fontWeight: '800', fontSize: 13 },
 });
