@@ -75,10 +75,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const id = setInterval(() => {
       setState((s) => {
         const next = tick(s, Date.now());
+        if (next === s) return s;
         void saveGame(next);
         return next;
       });
-    }, 1000);
+    }, 2000);
     return () => clearInterval(id);
   }, [ready]);
 

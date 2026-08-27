@@ -9,10 +9,13 @@ import { GameProvider } from '../src/ui/GameContext';
 
 export default function RootLayout() {
   useEffect(() => {
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    return () => {
-      void ScreenOrientation.unlockAsync();
-    };
+    void (async () => {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      } catch {
+        // Expo Go may ignore orientation lock on some devices
+      }
+    })();
   }, []);
 
   return (

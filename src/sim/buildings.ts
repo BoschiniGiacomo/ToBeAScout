@@ -187,6 +187,7 @@ export function collectFromBuilding(
 }
 
 export function produceResources(state: GameState, now: number): GameState {
+  let changed = false;
   const buildings = state.buildings.map((b) => {
     const def = getBuildingDef(b.buildingId);
     if (!def.produces) return b;
@@ -194,11 +195,15 @@ export function produceResources(state: GameState, now: number): GameState {
     const rate = def.produces.perHour[b.level - 1] ?? def.produces.perHour[0];
     const cap = def.produces.capacity[b.level - 1] ?? def.produces.capacity[0];
     const elapsedHr = Math.max(0, (now - b.lastCollectAt) / 3_600_000);
-    // lastCollectAt tracks last production tick base; stored accumulates
-    const produced = rate * elapsedHr;
-    // Reset lastCollectAt each tick accumulation relative to stored
-    const newStored = Math.min(cap, b.stored + produced);
+    if (elapsedHr <= 0) return b;
+    const newStored = Math.min(cap, b.stored + rate * elapsedHr);
+    if (Math.abs(newStored - b.stored) < 0.05) {
+      // Keep clock fresh without forcing UI churn when full/idle
+      if (b.stored >= cap) return b.stored === newStored ? b : { ...b, lastCollectAt: now };
+      return b;
+    }
+    changed = true;
     return { ...b, stored: newStored, lastCollectAt: now };
   });
-  return { ...state, buildings };
+  return changed ? { ...state, buildings } : state;
 }

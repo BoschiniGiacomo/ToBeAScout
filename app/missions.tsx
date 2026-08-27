@@ -22,7 +22,7 @@ export default function MissionsScreen() {
   const complete = isCampaignComplete(state);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.header}>
         <Link href="/" asChild>
           <Pressable>
@@ -48,7 +48,8 @@ export default function MissionsScreen() {
 
       {message ? <Text style={styles.msg}>{message}</Text> : null}
 
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView contentContainerStyle={styles.list} horizontal={false}>
+        <View style={styles.grid}>
         {MISSIONS.map((m) => {
           const open = isMissionUnlocked(state, m.id);
           const stars = getMissionStars(state, m.id);
@@ -62,7 +63,7 @@ export default function MissionsScreen() {
                 {getEraDef(m.era).name} · difficoltà {m.difficulty}/5 · ~{m.durationHintMin} min · serve{' '}
                 {m.requiredHousing} posti
               </Text>
-              <Text style={styles.cardDesc}>{m.description}</Text>
+              <Text style={styles.cardDesc} numberOfLines={2}>{m.description}</Text>
               <Text style={styles.reward}>
                 Premio max: {m.rewards.legna}L / {m.rewards.acqua}A / {m.rewards.impegno} Imp
                 {m.totemReward ? ` · Totem: ${m.totemReward}` : ''}
@@ -82,6 +83,7 @@ export default function MissionsScreen() {
             </View>
           );
         })}
+        </View>
         {unlocked.length === 0 ? (
           <Text style={styles.empty}>Potenzia il QG e completa le missioni precedenti.</Text>
         ) : null}
@@ -108,27 +110,31 @@ const styles = StyleSheet.create({
   progOn: { backgroundColor: '#33691E' },
   progText: { color: '#ECEFF1', fontSize: 12 },
   msg: { color: '#FFF59D', paddingHorizontal: 14, marginBottom: 6 },
-  list: { padding: 12, gap: 10, paddingBottom: 40 },
+  list: { padding: 12, paddingBottom: 24 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: {
     backgroundColor: 'rgba(15,30,18,0.95)',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: '#2E7D32',
+    width: '48%',
+    minWidth: 280,
+    flexGrow: 1,
   },
   cardLocked: { opacity: 0.55, borderColor: '#455A64' },
-  cardTitle: { color: '#F1F8E9', fontWeight: '800', fontSize: 16 },
-  cardMeta: { color: '#A5D6A7', fontSize: 12, marginTop: 4 },
-  cardDesc: { color: '#DCEDC8', marginTop: 8, lineHeight: 18 },
-  reward: { color: '#FFE082', fontSize: 12, marginTop: 8 },
+  cardTitle: { color: '#F1F8E9', fontWeight: '800', fontSize: 14 },
+  cardMeta: { color: '#A5D6A7', fontSize: 11, marginTop: 4 },
+  cardDesc: { color: '#DCEDC8', marginTop: 6, lineHeight: 16, fontSize: 12 },
+  reward: { color: '#FFE082', fontSize: 11, marginTop: 6 },
   go: {
-    marginTop: 10,
+    marginTop: 8,
     backgroundColor: '#2E7D32',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
   },
   goDisabled: { backgroundColor: '#455A64' },
-  goText: { color: '#FFF', fontWeight: '800' },
+  goText: { color: '#FFF', fontWeight: '800', fontSize: 12 },
   empty: { color: '#B0BEC5', textAlign: 'center', marginTop: 20 },
 });

@@ -1,14 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import {
-  Canvas,
-  RoundedRect,
-  vec,
-  Line,
-  Group,
-  Text as SkText,
-  matchFont,
-} from '@shopify/react-native-skia';
+import React, { memo, useCallback, useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -37,6 +28,79 @@ interface Props {
   onSelectBuilding?: (instanceId: string | null) => void;
 }
 
+type DrawItem = {
+  key: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+  label: string;
+  depth: number;
+  hpRatio: number;
+  selected: boolean;
+};
+
+const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
+  const p = gridToScreen(x, y);
+  const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: p.x - 7,
+        top: p.y - 3,
+        width: 14,
+        height: 7,
+        borderRadius: 2,
+        backgroundColor: shade,
+        opacity: 0.7,
+      }}
+    />
+  );
+});
+
+const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
+  const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
+  const bw = Math.max(22, item.w * TILE_W * 0.45);
+  const bh = Math.max(26, item.h * TILE_H * 0.9 + 18);
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: c.x - bw / 2,
+        top: c.y - bh,
+        width: bw,
+        height: bh,
+        borderRadius: 4,
+        backgroundColor: item.color,
+        borderWidth: item.selected ? 2 : 0,
+        borderColor: '#FFF59D',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: Math.floor(item.depth),
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          top: -6,
+          left: 0,
+          height: 4,
+          width: Math.max(4, bw * item.hpRatio),
+          backgroundColor: '#A5D6A7',
+          borderRadius: 1,
+        }}
+      />
+      <Text style={styles.label} numberOfLines={1}>
+        {item.label}
+      </Text>
+    </View>
+  );
+});
+
 export function IsometricWorld({
   state,
   width,
@@ -48,9 +112,9 @@ export function IsometricWorld({
   onSelectBuilding,
 }: Props) {
   const gridSize = combat?.mapSize ?? META.gridSize;
-  const offsetX = useSharedValue(width / 2);
-  const offsetY = useSharedValue(80);
-  const scale = useSharedValue(0.85);
+  const offsetX = useSharedValue(width * 0.35);
+  const offsetY = useSharedValue(height * 0.2);
+  const scale = useSharedValue(0.9);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
@@ -86,15 +150,12 @@ export function IsometricWorld({
       startScale.value = scale.value;
     })
     .onUpdate((e) => {
-      scale.value = Math.min(2.2, Math.max(0.4, startScale.value * e.scale));
+      scale.value = Math.min(2.2, Math.max(0.45, startScale.value * e.scale));
     });
 
-  const canvasSize = Math.max(width, height) * 4;
-  const origin = canvasSize / 2;
-
   const tap = Gesture.Tap().onEnd((e) => {
-    const localX = (e.x - offsetX.value) / scale.value - origin;
-    const localY = (e.y - offsetY.value) / scale.value - origin;
+    const localX = (e.x - offsetX.value) / scale.value;
+    const localY = (e.y - offsetY.value) / scale.value;
     const g = screenToGrid(localX, localY);
     runOnJS(handleTap)(g.x, g.y);
   });
@@ -108,9 +169,17 @@ export function IsometricWorld({
     ],
   }));
 
-  const sorted = useMemo(() => {
+  const tiles = useMemo(() => {
+    const list: { x: number; y: number }[] = [];
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) list.push({ x, y });
+    }
+    return list;
+  }, [gridSize]);
+
+  const sorted = useMemo((): DrawItem[] => {
     if (mode === 'combat' && combat) {
-      const items = combat.buildings
+      const items: DrawItem[] = combat.buildings
         .filter((b) => !b.destroyed)
         .map((b) => ({
           key: b.instanceId,
@@ -161,111 +230,20 @@ export function IsometricWorld({
       .sort((a, b) => a.depth - b.depth);
   }, [combat, mode, selectedBuildingId, state.buildings]);
 
-  const font = matchFont({ fontFamily: 'System', fontSize: 10 });
+  const worldW = gridSize * TILE_W + 80;
+  const worldH = gridSize * TILE_H + 80;
 
   return (
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }}>
-          <Animated.View style={[{ width: canvasSize, height: canvasSize }, animatedStyle]}>
-            <Canvas style={{ width: canvasSize, height: canvasSize }}>
-              <Group>
-                {Array.from({ length: gridSize }, (_, y) =>
-                  Array.from({ length: gridSize }, (__, x) => {
-                    const p = gridToScreen(x, y);
-                    const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
-                    const cx = p.x + origin;
-                    const cy = p.y + origin;
-                    return (
-                      <Group key={`t-${x}-${y}`}>
-                        <Line
-                          p1={vec(cx, cy - TILE_H / 2)}
-                          p2={vec(cx + TILE_W / 2, cy)}
-                          color="#2D5A27"
-                          strokeWidth={1}
-                        />
-                        <Line
-                          p1={vec(cx + TILE_W / 2, cy)}
-                          p2={vec(cx, cy + TILE_H / 2)}
-                          color="#2D5A27"
-                          strokeWidth={1}
-                        />
-                        <Line
-                          p1={vec(cx, cy + TILE_H / 2)}
-                          p2={vec(cx - TILE_W / 2, cy)}
-                          color="#2D5A27"
-                          strokeWidth={1}
-                        />
-                        <Line
-                          p1={vec(cx - TILE_W / 2, cy)}
-                          p2={vec(cx, cy - TILE_H / 2)}
-                          color="#2D5A27"
-                          strokeWidth={1}
-                        />
-                        <RoundedRect
-                          x={cx - 6}
-                          y={cy - 3}
-                          width={12}
-                          height={6}
-                          r={1}
-                          color={shade}
-                          opacity={0.55}
-                        />
-                      </Group>
-                    );
-                  }),
-                )}
-
-                {sorted.map((item) => {
-                  const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-                  const cx = c.x + origin;
-                  const cy = c.y + origin;
-                  const bw = Math.max(18, item.w * TILE_W * 0.42);
-                  const bh = Math.max(22, item.h * TILE_H * 0.85 + 16);
-                  return (
-                    <Group key={item.key}>
-                      <RoundedRect
-                        x={cx - bw / 2}
-                        y={cy - bh}
-                        width={bw}
-                        height={bh}
-                        r={4}
-                        color={item.color}
-                      />
-                      {item.selected ? (
-                        <RoundedRect
-                          x={cx - bw / 2 - 2}
-                          y={cy - bh - 2}
-                          width={bw + 4}
-                          height={bh + 4}
-                          r={5}
-                          color="#FFF59D"
-                          style="stroke"
-                          strokeWidth={2}
-                        />
-                      ) : null}
-                      <RoundedRect
-                        x={cx - bw / 2}
-                        y={cy - bh - 7}
-                        width={Math.max(2, bw * item.hpRatio)}
-                        height={4}
-                        r={1}
-                        color="#A5D6A7"
-                      />
-                      {font ? (
-                        <SkText
-                          x={cx - bw / 2 + 2}
-                          y={cy - bh / 2}
-                          text={item.label}
-                          font={font}
-                          color="#FFFDE7"
-                        />
-                      ) : null}
-                    </Group>
-                  );
-                })}
-              </Group>
-            </Canvas>
+          <Animated.View style={[{ width: worldW, height: worldH }, animatedStyle]}>
+            {tiles.map((t) => (
+              <TileDot key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
+            ))}
+            {sorted.map((item) => (
+              <BuildingSprite key={item.key} item={item} />
+            ))}
           </Animated.View>
         </View>
       </GestureDetector>
@@ -277,5 +255,10 @@ const styles = StyleSheet.create({
   wrap: {
     overflow: 'hidden',
     backgroundColor: '#1B4332',
+  },
+  label: {
+    color: '#FFFDE7',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
