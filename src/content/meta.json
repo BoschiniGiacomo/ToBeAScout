@@ -1,7 +1,7 @@
 {
   "tileWidth": 64,
   "tileHeight": 32,
-  "gridSize": 14,
+  "gridSize": 20,
   "startingResources": {
     "legna": 800,
     "acqua": 800,

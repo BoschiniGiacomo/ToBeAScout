@@ -9,8 +9,7 @@ import Animated, {
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
-import { resolveBuildingSprite } from './assets';
-import { logCrash } from '../debug/crashLog';
+import { resolveBuildingSprite, resolveTileSprite } from './assets';
 import {
   TILE_H,
   TILE_W,
@@ -27,6 +26,7 @@ interface Props {
   mode?: 'village' | 'combat';
   combat?: CombatState | null;
   selectedBuildingId?: string | null;
+  /** Edificio scelto dal pannello: attiva modalità piazzamento con ghost */
   placementBuildingId?: string | null;
   hoverTile?: { x: number; y: number } | null;
   onHoverTile?: (gx: number, gy: number) => void;
@@ -49,7 +49,7 @@ type DrawItem = {
   sprite: number | null;
 };
 
-/** Placement highlight cell. */
+/** Rombo isometrico per una cella della griglia (anteprima piazzamento). */
 const IsoCell = memo(function IsoCell({
   x,
   y,
@@ -71,9 +71,22 @@ const IsoCell = memo(function IsoCell({
         top: p.y - TILE_H / 2,
         width: TILE_W,
         height: TILE_H,
-        zIndex: 9000,
+        zIndex: 5000,
       }}
     >
+      <View
+        style={{
+          position: 'absolute',
+          left: TILE_W / 2 - 2,
+          top: 0,
+          width: 4,
+          height: TILE_H,
+          backgroundColor: border,
+          transform: [{ scaleX: TILE_W / 4 }],
+          opacity: 0,
+        }}
+      />
+      {/* Diamond via rotated square approximating iso tile */}
       <View
         style={{
           position: 'absolute',
@@ -91,145 +104,106 @@ const IsoCell = memo(function IsoCell({
   );
 });
 
-/**
- * Empty ground tile WITHOUT Image (Views only).
- * Hundreds of PNG Image nodes were crashing Expo Go on startup.
- */
-const LightGrassTile = memo(function LightGrassTile({ x, y }: { x: number; y: number }) {
+const EMPTY_TILE = resolveTileSprite('tile_grass_empty');
+/** Iso ground block: top diamond ~TILE_W x TILE_H, plus dirt face below. */
+const TILE_SPRITE_W = TILE_W + 4;
+const TILE_SPRITE_H = Math.round(TILE_H * 1.85);
+
+const GrassTile = memo(function GrassTile({ x, y }: { x: number; y: number }) {
   const p = gridToScreen(x, y);
-  const top = (x + y) % 2 === 0 ? '#5DAE45' : '#4F9A3C';
-  const dirt = '#6B4A2E';
-  const dirtDark = '#543820';
+  // Anchor: center of top diamond sits on gridToScreen point
+  const left = p.x - TILE_SPRITE_W / 2;
+  const top = p.y - TILE_H / 2;
+  return (
+    <Image
+      pointerEvents="none"
+      source={EMPTY_TILE!}
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width: TILE_SPRITE_W,
+        height: TILE_SPRITE_H,
+        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
+      }}
+      resizeMode="contain"
+    />
+  );
+});
+
+const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
+  if (EMPTY_TILE) return <GrassTile x={x} y={y} />;
+  const p = gridToScreen(x, y);
+  const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: p.x - TILE_W / 2,
-        top: p.y - TILE_H / 2,
-        width: TILE_W,
-        height: TILE_H + 10,
+        left: p.x - 7,
+        top: p.y - 3,
+        width: 14,
+        height: 7,
+        borderRadius: 2,
+        backgroundColor: shade,
+        opacity: 0.7,
+        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
+      }}
+    />
+  );
+});
+
+const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
+  const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
+  // Cover isometric footprint diamond: width ≈ (w+h) * TILE_W/2 (2x2 → ~128px)
+  const bw = Math.max(40, (item.w + item.h) * (TILE_W / 2) * 0.98);
+  const bh = item.sprite
+    ? Math.max(56, bw * 0.92)
+    : Math.max(26, item.h * TILE_H * 0.9 + 18);
+  // South tip of footprint (ground contact)
+  const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: c.x - bw / 2,
+        top: southY - bh + TILE_H * 0.15,
+        width: bw,
+        height: bh,
+        borderRadius: item.sprite ? 0 : 4,
+        backgroundColor: item.sprite ? 'transparent' : item.color,
+        borderWidth: item.selected ? 2 : 0,
+        borderColor: '#FFF59D',
+        alignItems: 'center',
+        justifyContent: item.sprite ? 'flex-end' : 'center',
+        zIndex: Math.floor(item.depth),
+        overflow: 'visible',
       }}
     >
-      {/* dirt face */}
       <View
         style={{
           position: 'absolute',
-          left: 2,
-          top: TILE_H / 2,
-          width: TILE_W - 4,
-          height: 10,
-          backgroundColor: dirt,
-          borderBottomLeftRadius: 2,
-          borderBottomRightRadius: 2,
+          top: -6,
+          left: 0,
+          height: 4,
+          width: Math.max(4, bw * item.hpRatio),
+          backgroundColor: '#A5D6A7',
+          borderRadius: 1,
+          zIndex: 2,
         }}
       />
-      <View
-        style={{
-          position: 'absolute',
-          left: 4,
-          top: TILE_H / 2 + 7,
-          width: TILE_W - 8,
-          height: 3,
-          backgroundColor: dirtDark,
-          opacity: 0.5,
-        }}
-      />
-      {/* grass diamond */}
-      <View
-        style={{
-          position: 'absolute',
-          left: TILE_W / 2 - TILE_H / 2,
-          top: 0,
-          width: TILE_H,
-          height: TILE_H,
-          backgroundColor: top,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: '#3E7A30',
-          transform: [{ rotate: '45deg' }, { scaleX: TILE_W / TILE_H }],
-        }}
-      />
+      {item.sprite ? (
+        <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
+      ) : (
+        <Text style={styles.label} numberOfLines={1}>
+          {item.label}
+        </Text>
+      )}
     </View>
   );
 });
-
-/** Ground never depends on selection → no remount when tapping buildings. */
-const GroundLayer = memo(function GroundLayer({ gridSize }: { gridSize: number }) {
-  const tiles = useMemo(() => {
-    const list: { x: number; y: number }[] = [];
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) list.push({ x, y });
-    }
-    return list;
-  }, [gridSize]);
-
-  return (
-    <>
-      {tiles.map((t) => (
-        <LightGrassTile key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
-      ))}
-    </>
-  );
-});
-
-const BuildingSprite = memo(
-  function BuildingSprite({ item }: { item: DrawItem }) {
-    const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-    const bw = Math.max(40, (item.w + item.h) * (TILE_W / 2) * 0.98);
-    const bh = item.sprite
-      ? Math.max(56, bw * 0.92)
-      : Math.max(26, item.h * TILE_H * 0.9 + 18);
-    const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
-
-    return (
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: c.x - bw / 2,
-          top: southY - bh + TILE_H * 0.15,
-          width: bw,
-          height: bh,
-          borderRadius: item.sprite ? 0 : 4,
-          backgroundColor: item.sprite ? 'transparent' : item.color,
-          borderWidth: item.selected ? 2 : 0,
-          borderColor: '#FFF59D',
-          alignItems: 'center',
-          justifyContent: item.sprite ? 'flex-end' : 'center',
-          zIndex: Math.floor(item.depth),
-          overflow: 'visible',
-        }}
-      >
-        <View
-          style={{
-            position: 'absolute',
-            top: -6,
-            left: 0,
-            height: 4,
-            width: Math.max(4, bw * item.hpRatio),
-            backgroundColor: '#A5D6A7',
-            borderRadius: 1,
-            zIndex: 2,
-          }}
-        />
-        {item.sprite ? (
-          <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
-        ) : (
-          <Text style={styles.label} numberOfLines={1}>
-            {item.label}
-          </Text>
-        )}
-      </View>
-    );
-  },
-  (a, b) =>
-    a.item.key === b.item.key &&
-    a.item.selected === b.item.selected &&
-    a.item.sprite === b.item.sprite &&
-    a.item.x === b.item.x &&
-    a.item.y === b.item.y &&
-    a.item.hpRatio === b.item.hpRatio,
-);
 
 function toDrawItem(
   key: string,
@@ -291,7 +265,7 @@ export function IsometricWorld({
   const placing = mode === 'village' && !!placementBuildingId;
   const offsetX = useSharedValue(width * 0.35);
   const offsetY = useSharedValue(height * 0.2);
-  const scale = useSharedValue(0.85);
+  const scale = useSharedValue(0.9);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
@@ -305,37 +279,32 @@ export function IsometricWorld({
 
   const handleTap = useCallback(
     (gx: number, gy: number) => {
-      try {
-        if (mode === 'combat') {
-          onTapTile?.(gx, gy);
-          return;
-        }
-        if (placementBuildingId) {
-          onConfirmPlace?.(gx, gy);
-          return;
-        }
-        const hit = state.buildings.find((b) => {
-          try {
-            const def = getBuildingDef(b.buildingId);
-            return (
-              gx >= b.x &&
-              gx < b.x + def.footprint.w &&
-              gy >= b.y &&
-              gy < b.y + def.footprint.h
-            );
-          } catch (e) {
-            logCrash('action', 'hitTestBuilding', e, { buildingId: b.buildingId });
-            return false;
-          }
-        });
-        onSelectBuilding?.(hit?.instanceId ?? null);
-      } catch (e) {
-        logCrash('action', 'handleTapSelect', e, { gx, gy });
+      if (mode === 'combat') {
+        onTapTile?.(gx, gy);
+        return;
       }
+      if (placementBuildingId) {
+        onConfirmPlace?.(gx, gy);
+        return;
+      }
+      const hit = state.buildings.find((b) => {
+        const def = getBuildingDef(b.buildingId);
+        return gx >= b.x && gx < b.x + def.footprint.w && gy >= b.y && gy < b.y + def.footprint.h;
+      });
+      onSelectBuilding?.(hit?.instanceId ?? null);
+      onTapTile?.(gx, gy);
     },
-    [mode, onConfirmPlace, onSelectBuilding, onTapTile, placementBuildingId, state.buildings],
+    [
+      mode,
+      onConfirmPlace,
+      onSelectBuilding,
+      onTapTile,
+      placementBuildingId,
+      state.buildings,
+    ],
   );
 
+  // Camera pan: 1 finger when not placing, 2 fingers while placing
   const cameraPan = Gesture.Pan()
     .minPointers(placing ? 2 : 1)
     .onBegin(() => {
@@ -347,6 +316,7 @@ export function IsometricWorld({
       offsetY.value = startY.value + e.translationY;
     });
 
+  // While placing: 1 finger moves the ghost over the grid
   const placePointer = Gesture.Pan()
     .enabled(placing)
     .minPointers(1)
@@ -365,7 +335,7 @@ export function IsometricWorld({
       startScale.value = scale.value;
     })
     .onUpdate((e) => {
-      scale.value = Math.min(2.0, Math.max(0.5, startScale.value * e.scale));
+      scale.value = Math.min(2.2, Math.max(0.45, startScale.value * e.scale));
     });
 
   const tap = Gesture.Tap().onEnd((e) => {
@@ -386,105 +356,103 @@ export function IsometricWorld({
     ],
   }));
 
+  const tiles = useMemo(() => {
+    const list: { x: number; y: number }[] = [];
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) list.push({ x, y });
+    }
+    return list;
+  }, [gridSize]);
+
   const preview = useMemo(() => {
     if (!placing || !placementBuildingId || !hoverTile) return null;
-    try {
-      const def = getBuildingDef(placementBuildingId);
-      const check = canPlace(state, placementBuildingId, hoverTile.x, hoverTile.y);
-      const cells: { x: number; y: number }[] = [];
-      for (let dy = 0; dy < def.footprint.h; dy++) {
-        for (let dx = 0; dx < def.footprint.w; dx++) {
-          cells.push({ x: hoverTile.x + dx, y: hoverTile.y + dy });
-        }
+    const def = getBuildingDef(placementBuildingId);
+    const check = canPlace(state, placementBuildingId, hoverTile.x, hoverTile.y);
+    const cells: { x: number; y: number }[] = [];
+    for (let dy = 0; dy < def.footprint.h; dy++) {
+      for (let dx = 0; dx < def.footprint.w; dx++) {
+        cells.push({ x: hoverTile.x + dx, y: hoverTile.y + dy });
       }
-      return {
-        valid: check.ok,
-        cells,
-        ghost: toDrawItem(
-          'ghost',
-          hoverTile.x,
-          hoverTile.y,
-          def.footprint.w,
-          def.footprint.h,
-          placementBuildingId,
-          1,
-          def.color,
-          def.name.slice(0, 4),
-          depthKey(hoverTile.x, hoverTile.y, def.footprint.w, def.footprint.h, 9),
-          1,
-          false,
-        ),
-      };
-    } catch (e) {
-      logCrash('action', 'placementPreview', e);
-      return null;
     }
+    return {
+      valid: check.ok,
+      cells,
+      ghost: toDrawItem(
+        'ghost',
+        hoverTile.x,
+        hoverTile.y,
+        def.footprint.w,
+        def.footprint.h,
+        placementBuildingId,
+        1,
+        def.color,
+        def.name.slice(0, 4),
+        depthKey(hoverTile.x, hoverTile.y, def.footprint.w, def.footprint.h, 9),
+        1,
+        false,
+      ),
+    };
   }, [placing, placementBuildingId, hoverTile, state]);
 
   const sorted = useMemo((): DrawItem[] => {
-    try {
-      if (mode === 'combat' && combat) {
-        const items: DrawItem[] = combat.buildings
-          .filter((b) => !b.destroyed)
-          .map((b) => {
-            const def = getBuildingDef(b.buildingId);
-            return toDrawItem(
-              b.instanceId,
-              b.x,
-              b.y,
-              b.w,
-              b.h,
-              b.buildingId,
-              b.level,
-              def.color,
-              def.name.slice(0, 3),
-              depthKey(b.x, b.y, b.w, b.h, 1),
-              b.maxHp > 0 ? b.hp / b.maxHp : 0,
-              false,
-            );
-          });
-        for (const u of combat.units) {
-          const def = getTroopDef(u.troopId);
-          items.push({
-            key: u.id,
-            x: u.x,
-            y: u.y,
-            w: 1,
-            h: 1,
-            color: def.color,
-            label: def.name.slice(0, 2),
-            depth: depthKey(u.x, u.y, 1, 1, 2),
-            hpRatio: u.maxHp > 0 ? u.hp / u.maxHp : 0,
-            selected: false,
-            sprite: null,
-          });
-        }
-        return items.sort((a, b) => a.depth - b.depth);
-      }
-
-      return (state.buildings as PlacedBuilding[])
+    if (mode === 'combat' && combat) {
+      const items: DrawItem[] = combat.buildings
+        .filter((b) => !b.destroyed)
         .map((b) => {
           const def = getBuildingDef(b.buildingId);
           return toDrawItem(
             b.instanceId,
             b.x,
             b.y,
-            def.footprint.w,
-            def.footprint.h,
+            b.w,
+            b.h,
             b.buildingId,
             b.level,
             def.color,
-            def.name.slice(0, 4),
-            depthKey(b.x, b.y, def.footprint.w, def.footprint.h, 1),
-            1,
-            b.instanceId === selectedBuildingId,
+            def.name.slice(0, 3),
+            depthKey(b.x, b.y, b.w, b.h, 1),
+            b.maxHp > 0 ? b.hp / b.maxHp : 0,
+            false,
           );
-        })
-        .sort((a, b) => a.depth - b.depth);
-    } catch (e) {
-      logCrash('render', 'buildSortedSprites', e);
-      return [];
+        });
+      for (const u of combat.units) {
+        const def = getTroopDef(u.troopId);
+        items.push({
+          key: u.id,
+          x: u.x,
+          y: u.y,
+          w: 1,
+          h: 1,
+          color: def.color,
+          label: def.name.slice(0, 2),
+          depth: depthKey(u.x, u.y, 1, 1, 2),
+          hpRatio: u.maxHp > 0 ? u.hp / u.maxHp : 0,
+          selected: false,
+          sprite: null,
+        });
+      }
+      return items.sort((a, b) => a.depth - b.depth);
     }
+
+    return (state.buildings as PlacedBuilding[])
+      .map((b) => {
+        const def = getBuildingDef(b.buildingId);
+        return toDrawItem(
+          b.instanceId,
+          b.x,
+          b.y,
+          def.footprint.w,
+          def.footprint.h,
+          b.buildingId,
+          b.level,
+          def.color,
+          def.name.slice(0, 4),
+          depthKey(b.x, b.y, def.footprint.w, def.footprint.h, 1),
+          1,
+          b.instanceId === selectedBuildingId,
+        );
+      })
+      .sort((a, b) => a.depth - b.depth);
   }, [combat, mode, selectedBuildingId, state.buildings]);
 
   const worldW = gridSize * TILE_W + 80;
@@ -495,13 +463,20 @@ export function IsometricWorld({
       <GestureDetector gesture={composed}>
         <View style={{ width, height }}>
           <Animated.View style={[{ width: worldW, height: worldH }, animatedStyle]}>
-            <GroundLayer gridSize={gridSize} />
+            {tiles.map((t) => (
+              <TileDot key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
+            ))}
             {sorted.map((item) => (
               <BuildingSprite key={item.key} item={item} />
             ))}
             {preview
               ? preview.cells.map((c) => (
-                  <IsoCell key={`prev-${c.x}-${c.y}`} x={c.x} y={c.y} valid={preview.valid} />
+                  <IsoCell
+                    key={`prev-${c.x}-${c.y}`}
+                    x={c.x}
+                    y={c.y}
+                    valid={preview.valid}
+                  />
                 ))
               : null}
             {preview ? (
