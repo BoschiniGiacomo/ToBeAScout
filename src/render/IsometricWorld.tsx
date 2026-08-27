@@ -9,7 +9,7 @@ import Animated, {
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
-import { resolveBuildingSprite, resolveTileSprite } from './assets';
+import { resolveBuildingSprite } from './assets';
 import {
   TILE_H,
   TILE_W,
@@ -26,7 +26,6 @@ interface Props {
   mode?: 'village' | 'combat';
   combat?: CombatState | null;
   selectedBuildingId?: string | null;
-  /** Edificio scelto dal pannello: attiva modalità piazzamento con ghost */
   placementBuildingId?: string | null;
   hoverTile?: { x: number; y: number } | null;
   onHoverTile?: (gx: number, gy: number) => void;
@@ -49,7 +48,7 @@ type DrawItem = {
   sprite: number | null;
 };
 
-/** Rombo isometrico per una cella della griglia (anteprima piazzamento). */
+/** Placement footprint highlight (few cells only). */
 const IsoCell = memo(function IsoCell({
   x,
   y,
@@ -77,19 +76,6 @@ const IsoCell = memo(function IsoCell({
       <View
         style={{
           position: 'absolute',
-          left: TILE_W / 2 - 2,
-          top: 0,
-          width: 4,
-          height: TILE_H,
-          backgroundColor: border,
-          transform: [{ scaleX: TILE_W / 4 }],
-          opacity: 0,
-        }}
-      />
-      {/* Diamond via rotated square approximating iso tile */}
-      <View
-        style={{
-          position: 'absolute',
           left: TILE_W / 2 - TILE_H / 2,
           top: 0,
           width: TILE_H,
@@ -104,98 +90,40 @@ const IsoCell = memo(function IsoCell({
   );
 });
 
-const EMPTY_TILE = resolveTileSprite('tile_grass_empty');
-/** Iso ground block: top diamond ~TILE_W x TILE_H, plus dirt face below. */
-const TILE_SPRITE_W = TILE_W + 4;
-const TILE_SPRITE_H = Math.round(TILE_H * 1.85);
-
-const GrassTile = memo(function GrassTile({ x, y }: { x: number; y: number }) {
-  const p = gridToScreen(x, y);
-  // Anchor: center of top diamond sits on gridToScreen point
-  const left = p.x - TILE_SPRITE_W / 2;
-  const top = p.y - TILE_H / 2;
-  return (
-    <Image
-      pointerEvents="none"
-      source={EMPTY_TILE!}
-      style={{
-        position: 'absolute',
-        left,
-        top,
-        width: TILE_SPRITE_W,
-        height: TILE_SPRITE_H,
-        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
-      }}
-      resizeMode="contain"
-    />
-  );
-});
-
-const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
-  if (EMPTY_TILE) return <GrassTile x={x} y={y} />;
-  const p = gridToScreen(x, y);
-  const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: p.x - 7,
-        top: p.y - 3,
-        width: 14,
-        height: 7,
-        borderRadius: 2,
-        backgroundColor: shade,
-        opacity: 0.7,
-        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
-      }}
-    />
-  );
-});
-
 const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
   const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-  // Cover isometric footprint diamond: width ≈ (w+h) * TILE_W/2 (2x2 → ~128px)
-  const bw = Math.max(40, (item.w + item.h) * (TILE_W / 2) * 0.98);
-  const bh = item.sprite
-    ? Math.max(56, bw * 0.92)
-    : Math.max(26, item.h * TILE_H * 0.9 + 18);
-  // South tip of footprint (ground contact)
+  const bw = Math.max(36, (item.w + item.h) * (TILE_W / 2) * 0.9);
+  const bh = item.sprite ? Math.max(48, bw * 0.9) : Math.max(24, item.h * TILE_H * 0.85 + 14);
   const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
 
   return (
     <View
       pointerEvents="none"
+      collapsable={false}
       style={{
         position: 'absolute',
         left: c.x - bw / 2,
         top: southY - bh + TILE_H * 0.15,
         width: bw,
         height: bh,
-        borderRadius: item.sprite ? 0 : 4,
-        backgroundColor: item.sprite ? 'transparent' : item.color,
-        borderWidth: item.selected ? 2 : 0,
-        borderColor: '#FFF59D',
+        zIndex: Math.floor(item.depth),
         alignItems: 'center',
         justifyContent: item.sprite ? 'flex-end' : 'center',
-        zIndex: Math.floor(item.depth),
-        overflow: 'visible',
+        backgroundColor: item.sprite ? 'transparent' : item.color,
+        borderRadius: item.sprite ? 0 : 4,
+        borderWidth: item.selected ? 2 : 0,
+        borderColor: '#FFF59D',
       }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          top: -6,
-          left: 0,
-          height: 4,
-          width: Math.max(4, bw * item.hpRatio),
-          backgroundColor: '#A5D6A7',
-          borderRadius: 1,
-          zIndex: 2,
-        }}
-      />
       {item.sprite ? (
-        <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
+        <Image
+          source={item.sprite}
+          style={{ width: bw, height: bh }}
+          resizeMode="contain"
+          // Android: decode closer to display size → less RAM
+          resizeMethod="resize"
+          fadeDuration={0}
+        />
       ) : (
         <Text style={styles.label} numberOfLines={1}>
           {item.label}
@@ -247,6 +175,46 @@ function eventToGrid(
   return screenToGrid(localX, localY);
 }
 
+/** Static layer: ground + buildings. Rasterized so pan moves 1 texture, not N views. */
+const StaticWorldLayer = memo(function StaticWorldLayer({
+  items,
+  gridSize,
+}: {
+  items: DrawItem[];
+  gridSize: number;
+}) {
+  const groundLeft = gridToScreen(0, gridSize - 1).x - TILE_W;
+  const groundRight = gridToScreen(gridSize - 1, 0).x + TILE_W;
+  const groundTop = gridToScreen(0, 0).y - TILE_H;
+  const groundBottom = gridToScreen(gridSize - 1, gridSize - 1).y + TILE_H * 2;
+
+  return (
+    <View
+      pointerEvents="none"
+      collapsable={false}
+      // Flatten to one GPU texture → fluid pan without OOM in Expo Go
+      renderToHardwareTextureAndroid
+      shouldRasterizeIOS
+      style={StyleSheet.absoluteFill}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: groundLeft,
+          top: groundTop,
+          width: Math.max(80, groundRight - groundLeft),
+          height: Math.max(80, groundBottom - groundTop),
+          backgroundColor: '#3F7A3B',
+          borderRadius: 10,
+        }}
+      />
+      {items.map((item) => (
+        <BuildingSprite key={item.key} item={item} />
+      ))}
+    </View>
+  );
+});
+
 export function IsometricWorld({
   state,
   width,
@@ -263,9 +231,9 @@ export function IsometricWorld({
 }: Props) {
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
-  const offsetX = useSharedValue(width * 0.35);
-  const offsetY = useSharedValue(height * 0.2);
-  const scale = useSharedValue(0.9);
+  const offsetX = useSharedValue(width * 0.28);
+  const offsetY = useSharedValue(height * 0.18);
+  const scale = useSharedValue(1);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
@@ -304,49 +272,68 @@ export function IsometricWorld({
     ],
   );
 
-  // Camera pan: 1 finger when not placing, 2 fingers while placing
-  const cameraPan = Gesture.Pan()
-    .minPointers(placing ? 2 : 1)
-    .onBegin(() => {
-      startX.value = offsetX.value;
-      startY.value = offsetY.value;
-    })
-    .onUpdate((e) => {
-      offsetX.value = startX.value + e.translationX;
-      offsetY.value = startY.value + e.translationY;
-    });
+  const cameraPan = useMemo(
+    () =>
+      Gesture.Pan()
+        .minPointers(placing ? 2 : 1)
+        .onBegin(() => {
+          startX.value = offsetX.value;
+          startY.value = offsetY.value;
+        })
+        .onUpdate((e) => {
+          offsetX.value = startX.value + e.translationX;
+          offsetY.value = startY.value + e.translationY;
+        }),
+    [placing, offsetX, offsetY, startX, startY],
+  );
 
-  // While placing: 1 finger moves the ghost over the grid
-  const placePointer = Gesture.Pan()
-    .enabled(placing)
-    .minPointers(1)
-    .maxPointers(1)
-    .onBegin((e) => {
-      const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
-      runOnJS(reportHover)(g.x, g.y);
-    })
-    .onUpdate((e) => {
-      const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
-      runOnJS(reportHover)(g.x, g.y);
-    });
+  const placePointer = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(placing)
+        .minPointers(1)
+        .maxPointers(1)
+        .onBegin((e) => {
+          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          runOnJS(reportHover)(g.x, g.y);
+        })
+        .onUpdate((e) => {
+          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          runOnJS(reportHover)(g.x, g.y);
+        }),
+    [placing, offsetX, offsetY, scale, reportHover],
+  );
 
-  const pinch = Gesture.Pinch()
-    .onBegin(() => {
-      startScale.value = scale.value;
-    })
-    .onUpdate((e) => {
-      scale.value = Math.min(2.2, Math.max(0.45, startScale.value * e.scale));
-    });
+  // Soft pinch — keep scale range narrow to avoid huge offscreen bitmaps
+  const pinch = useMemo(
+    () =>
+      Gesture.Pinch()
+        .onBegin(() => {
+          startScale.value = scale.value;
+        })
+        .onUpdate((e) => {
+          scale.value = Math.min(1.45, Math.max(0.7, startScale.value * e.scale));
+        }),
+    [scale, startScale],
+  );
 
-  const tap = Gesture.Tap().onEnd((e) => {
-    const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
-    if (placing) runOnJS(reportHover)(g.x, g.y);
-    runOnJS(handleTap)(g.x, g.y);
-  });
+  const tap = useMemo(
+    () =>
+      Gesture.Tap().onEnd((e) => {
+        const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+        if (placing) runOnJS(reportHover)(g.x, g.y);
+        runOnJS(handleTap)(g.x, g.y);
+      }),
+    [placing, offsetX, offsetY, scale, reportHover, handleTap],
+  );
 
-  const composed = placing
-    ? Gesture.Simultaneous(placePointer, cameraPan, pinch, tap)
-    : Gesture.Simultaneous(cameraPan, pinch, tap);
+  const composed = useMemo(
+    () =>
+      placing
+        ? Gesture.Simultaneous(placePointer, cameraPan, pinch, tap)
+        : Gesture.Simultaneous(cameraPan, pinch, tap),
+    [placing, placePointer, cameraPan, pinch, tap],
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -449,54 +436,29 @@ export function IsometricWorld({
 
   const worldW = gridSize * TILE_W + 80;
   const worldH = gridSize * TILE_H + 120;
-  // Iso diamond bounds for the whole grid (screen coords of world origin)
-  const groundOrigin = gridToScreen(0, 0);
-  const groundEnd = gridToScreen(gridSize - 1, gridSize - 1);
-  const groundLeft = gridToScreen(0, gridSize - 1).x - TILE_W;
-  const groundRight = gridToScreen(gridSize - 1, 0).x + TILE_W;
-  const groundTop = groundOrigin.y - TILE_H;
-  const groundBottom = groundEnd.y + TILE_H * 2;
 
   return (
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
-        <View style={{ width, height }}>
-          <Animated.View style={[{ width: worldW, height: worldH }, animatedStyle]}>
-            {/* One ground plane instead of N×N tile Views (avoids Expo Go OOM on pan) */}
-            <View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                left: groundLeft,
-                top: groundTop,
-                width: Math.max(80, groundRight - groundLeft),
-                height: Math.max(80, groundBottom - groundTop),
-                backgroundColor: '#3F7A3B',
-                borderRadius: 8,
-                opacity: 0.95,
-                zIndex: 0,
-              }}
-            />
-            {sorted.map((item) => (
-              <BuildingSprite key={item.key} item={item} />
-            ))}
+        <Animated.View style={[{ width, height }, styles.gestureRoot]}>
+          <Animated.View
+            collapsable={false}
+            style={[{ width: worldW, height: worldH }, animatedStyle]}
+          >
+            <StaticWorldLayer items={sorted} gridSize={gridSize} />
+            {/* Dynamic overlays stay outside the rasterized layer */}
             {preview
               ? preview.cells.map((c) => (
-                  <IsoCell
-                    key={`prev-${c.x}-${c.y}`}
-                    x={c.x}
-                    y={c.y}
-                    valid={preview.valid}
-                  />
+                  <IsoCell key={`prev-${c.x}-${c.y}`} x={c.x} y={c.y} valid={preview.valid} />
                 ))
               : null}
             {preview ? (
-              <View style={{ opacity: preview.valid ? 0.85 : 0.45 }}>
+              <View style={{ opacity: preview.valid ? 0.85 : 0.45 }} pointerEvents="none">
                 <BuildingSprite item={preview.ghost} />
               </View>
             ) : null}
           </Animated.View>
-        </View>
+        </Animated.View>
       </GestureDetector>
       {placing ? (
         <View style={styles.placeBanner} pointerEvents="none">
@@ -513,6 +475,9 @@ const styles = StyleSheet.create({
   wrap: {
     overflow: 'hidden',
     backgroundColor: '#1A3A28',
+  },
+  gestureRoot: {
+    overflow: 'hidden',
   },
   label: {
     color: '#FFFDE7',
