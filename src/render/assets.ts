@@ -12,6 +12,12 @@ const SPRITES: Record<string, number> = {
   building_pozzo_3: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_4: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_5: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_deposito_legna: require('../../assets/buildings/deposito_legna_lvl1.png'),
+  building_deposito_legna_1: require('../../assets/buildings/deposito_legna_lvl1.png'),
+  building_deposito_legna_2: require('../../assets/buildings/deposito_legna_lvl1.png'),
+  building_deposito_legna_3: require('../../assets/buildings/deposito_legna_lvl1.png'),
+  building_deposito_legna_4: require('../../assets/buildings/deposito_legna_lvl1.png'),
+  building_deposito_legna_5: require('../../assets/buildings/deposito_legna_lvl1.png'),
 };
 
 export function resolveTileSprite(id: string = 'tile_grass_empty'): number | null {

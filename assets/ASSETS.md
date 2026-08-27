@@ -12,6 +12,7 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 Examples:
 - `assets/buildings/qg_lvl1.png`
 - `assets/buildings/pozzo_lvl1.png` ✅
+- `assets/buildings/deposito_legna_lvl1.png` ✅ (footprint 2×2)
 - `assets/tiles/grass_empty.png` ✅ (cella vuota)
 - `assets/buildings/tenda_specialita_lvl2.png`
 - `assets/troops/falegname.png`

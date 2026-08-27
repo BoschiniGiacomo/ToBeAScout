@@ -155,10 +155,13 @@ const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
 
 const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
   const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-  const bw = Math.max(36, item.w * TILE_W * 0.95);
+  // Cover isometric footprint diamond: width ≈ (w+h) * TILE_W/2 (2x2 → ~128px)
+  const bw = Math.max(40, (item.w + item.h) * (TILE_W / 2) * 0.98);
   const bh = item.sprite
-    ? Math.max(48, item.h * TILE_H * 1.15 + bw * 0.55)
+    ? Math.max(56, bw * 0.92)
     : Math.max(26, item.h * TILE_H * 0.9 + 18);
+  // South tip of footprint (ground contact)
+  const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
 
   return (
     <View
@@ -166,7 +169,7 @@ const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }
       style={{
         position: 'absolute',
         left: c.x - bw / 2,
-        top: c.y - bh,
+        top: southY - bh + TILE_H * 0.15,
         width: bw,
         height: bh,
         borderRadius: item.sprite ? 0 : 4,
