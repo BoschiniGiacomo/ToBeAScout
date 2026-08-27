@@ -1,0 +1,17 @@
+{
+  "tileWidth": 64,
+  "tileHeight": 32,
+  "gridSize": 20,
+  "startingResources": {
+    "legna": 800,
+    "acqua": 800,
+    "impegno": 0
+  },
+  "builderSlots": 2,
+  "assetConventions": {
+    "buildings": "assets/buildings/{id}_lvl{level}.png",
+    "troops": "assets/troops/{id}.png",
+    "anchor": "bottom-center of sprite aligns to footprint south tip",
+    "footprintNote": "width/height in tiles from building definition"
+  }
+}

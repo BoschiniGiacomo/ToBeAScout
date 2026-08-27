@@ -1,0 +1,52 @@
+[
+  {
+    "id": "lupetti",
+    "name": "Lupetti / Coccinelle",
+    "order": 1,
+    "qgLevelRequired": 1,
+    "description": "Branco e Cerchio: gioco, caccia e primi passi nel campo.",
+    "unlocksBuildings": ["qg", "deposito_legna", "pozzo", "tenda_specialita", "tenda_squadriglia", "palisata"],
+    "unlocksTroops": ["maestro_giochi", "campeggiatore"],
+    "missionIds": ["caccia_bianconiglio", "grande_urlo"]
+  },
+  {
+    "id": "reparto",
+    "name": "Reparto (E/G)",
+    "order": 2,
+    "qgLevelRequired": 2,
+    "description": "Squadriglie, specialità, brevetti, imprese e campi.",
+    "unlocksBuildings": ["campo_competenza", "maestro_specialita", "posto_guardia", "segnalatore"],
+    "unlocksTroops": ["falegname", "cuoco", "topografo", "infermiere", "segnalatore_troop"],
+    "missionIds": ["uscita_squadriglia", "impresa_ponte", "campo_specialita", "campo_competenza_mission", "conquista_totem"]
+  },
+  {
+    "id": "noviziato",
+    "name": "Noviziato",
+    "order": 3,
+    "qgLevelRequired": 3,
+    "description": "Strada e servizio: il ponte verso il Clan.",
+    "unlocksBuildings": ["rifugio_strada"],
+    "unlocksTroops": ["novizio"],
+    "missionIds": ["prima_strada", "servizio_noviziato"]
+  },
+  {
+    "id": "clan",
+    "name": "Clan / Fuoco",
+    "order": 4,
+    "qgLevelRequired": 4,
+    "description": "Hike, challenge, ROSS e cammino verso la Partenza.",
+    "unlocksBuildings": ["comunita_capi_padiglione"],
+    "unlocksTroops": ["rover", "pioniere", "trappeur", "soccorritore"],
+    "missionIds": ["hike_notturno", "challenge_clan", "uscita_capi_squadriglia", "uscita_partenti", "ross"]
+  },
+  {
+    "id": "comunita_capi",
+    "name": "Comunità Capi",
+    "order": 5,
+    "qgLevelRequired": 5,
+    "description": "CFT, CFM, CFA e brevetto di Capo.",
+    "unlocksBuildings": ["sala_formazione"],
+    "unlocksTroops": ["tirocinante", "capo_unita"],
+    "missionIds": ["cft", "cfm", "cfa", "brevetto_capo"]
+  }
+]
