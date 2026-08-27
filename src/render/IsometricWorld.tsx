@@ -9,7 +9,7 @@ import Animated, {
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
-import { resolveBuildingSprite } from './assets';
+import { resolveBuildingSprite, resolveTileSprite } from './assets';
 import {
   TILE_H,
   TILE_W,
@@ -104,7 +104,35 @@ const IsoCell = memo(function IsoCell({
   );
 });
 
+const EMPTY_TILE = resolveTileSprite('tile_grass_empty');
+/** Iso ground block: top diamond ~TILE_W x TILE_H, plus dirt face below. */
+const TILE_SPRITE_W = TILE_W + 4;
+const TILE_SPRITE_H = Math.round(TILE_H * 1.85);
+
+const GrassTile = memo(function GrassTile({ x, y }: { x: number; y: number }) {
+  const p = gridToScreen(x, y);
+  // Anchor: center of top diamond sits on gridToScreen point
+  const left = p.x - TILE_SPRITE_W / 2;
+  const top = p.y - TILE_H / 2;
+  return (
+    <Image
+      pointerEvents="none"
+      source={EMPTY_TILE!}
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width: TILE_SPRITE_W,
+        height: TILE_SPRITE_H,
+        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
+      }}
+      resizeMode="contain"
+    />
+  );
+});
+
 const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
+  if (EMPTY_TILE) return <GrassTile x={x} y={y} />;
   const p = gridToScreen(x, y);
   const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
   return (
@@ -119,6 +147,7 @@ const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
         borderRadius: 2,
         backgroundColor: shade,
         opacity: 0.7,
+        zIndex: Math.floor(depthKey(x, y, 1, 1, 0)),
       }}
     />
   );
@@ -469,7 +498,7 @@ export function IsometricWorld({
 const styles = StyleSheet.create({
   wrap: {
     overflow: 'hidden',
-    backgroundColor: '#1B4332',
+    backgroundColor: '#1A3A28',
   },
   label: {
     color: '#FFFDE7',
