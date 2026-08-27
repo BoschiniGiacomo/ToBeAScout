@@ -2,18 +2,23 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GameProvider } from '../src/ui/GameContext';
+import { installGlobalCrashHandlers } from '../src/debug/installGlobalHandlers';
+import { CrashErrorBoundary, CrashLogOverlay } from '../src/debug/ErrorBoundary';
+import { logCrash } from '../src/debug/crashLog';
+
+installGlobalCrashHandlers();
 
 export default function RootLayout() {
   useEffect(() => {
     void (async () => {
       try {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      } catch {
-        // Expo Go may ignore orientation lock on some devices
+      } catch (e) {
+        logCrash('action', 'lockOrientation', e);
       }
     })();
   }, []);
@@ -21,10 +26,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <GameProvider>
-          <StatusBar style="light" hidden />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1B4332' } }} />
-        </GameProvider>
+        <CrashErrorBoundary name="Root">
+          <GameProvider>
+            <StatusBar style="light" hidden />
+            <View style={styles.root}>
+              <Stack
+                screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1B4332' } }}
+              />
+              <CrashLogOverlay />
+            </View>
+          </GameProvider>
+        </CrashErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

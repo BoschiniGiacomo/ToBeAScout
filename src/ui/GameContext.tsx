@@ -20,6 +20,7 @@ import {
   stepCombat,
 } from '../sim/combat';
 import { createInitialState } from '../sim/economy';
+import { logCrash, safeAction } from '../debug/crashLog';
 
 interface GameContextValue {
   state: GameState;
@@ -30,12 +31,12 @@ interface GameContextValue {
   upgrade: (instanceId: string) => void;
   collect: (instanceId: string) => void;
   train: (troopId: string) => void;
-  startMission: (missionId: string) => CombatState | null;
+  startMission: (missionId: string) => CombatState | null | undefined;
   combat: CombatState | null;
   deploy: (troopId: string, x: number, y: number) => void;
   autoDeploy: () => void;
   finishCombat: () => void;
-  reset: () => Promise<void>;
+  reset: () => Promise<void> | undefined;
   setPlacementBuilding: (id: string | null) => void;
   placementBuilding: string | null;
   selectedBuildingId: string | null;
@@ -59,10 +60,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const loaded = await loadGame();
-      if (mounted) {
-        setState(loaded);
-        setReady(true);
+      try {
+        const loaded = await loadGame();
+        if (mounted) {
+          setState(loaded);
+          setReady(true);
+        }
+      } catch (e) {
+        logCrash('promise', 'loadGame', e);
+        if (mounted) setReady(true);
       }
     })();
     return () => {
@@ -73,12 +79,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     const id = setInterval(() => {
-      setState((s) => {
-        const next = tick(s, Date.now());
-        if (next === s) return s;
-        void saveGame(next);
-        return next;
-      });
+      try {
+        setState((s) => {
+          const next = tick(s, Date.now());
+          if (next === s) return s;
+          void saveGame(next).catch((e) => logCrash('promise', 'autosave', e));
+          return next;
+        });
+      } catch (e) {
+        logCrash('action', 'gameTick', e);
+      }
     }, 2000);
     return () => clearInterval(id);
   }, [ready]);
@@ -88,13 +98,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     let frame = 0;
     let last = Date.now();
     const loop = () => {
-      const now = Date.now();
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      setCombat((c) => {
-        if (!c || c.finished) return c;
-        return stepCombat(c, dt);
-      });
+      try {
+        const now = Date.now();
+        const dt = Math.min(0.1, (now - last) / 1000);
+        last = now;
+        setCombat((c) => {
+          if (!c || c.finished) return c;
+          try {
+            return stepCombat(c, dt);
+          } catch (e) {
+            logCrash('action', 'stepCombat', e, { missionId: c.missionId });
+            return { ...c, finished: true, victory: false };
+          }
+        });
+      } catch (e) {
+        logCrash('action', 'combatLoop', e);
+      }
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -103,13 +122,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const persist = useCallback((next: GameState) => {
     setState(next);
-    void saveGame(next);
+    void saveGame(next).catch((e) => logCrash('promise', 'saveGame', e));
   }, []);
 
   const clearMessage = useCallback(() => setMessage(null), []);
 
   const place = useCallback(
-    (buildingId: string, x: number, y: number) => {
+    safeAction('placeBuilding', (buildingId: string, x: number, y: number) => {
       const result = placeBuilding(tick(stateRef.current), buildingId, x, y);
       if (result.error) {
         setMessage(result.error);
@@ -118,12 +137,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       persist(result.state);
       setPlacementBuilding(null);
       setMessage(`${buildingId} in costruzione`);
-    },
+    }),
     [persist],
   );
 
   const upgrade = useCallback(
-    (instanceId: string) => {
+    safeAction('upgradeBuilding', (instanceId: string) => {
       const result = startUpgrade(tick(stateRef.current), instanceId);
       if (result.error) {
         setMessage(result.error);
@@ -131,19 +150,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
       persist(result.state);
       setMessage('Upgrade avviato');
-    },
+    }),
     [persist],
   );
 
   const collect = useCallback(
-    (instanceId: string) => {
+    safeAction('collectBuilding', (instanceId: string) => {
       persist(collectFromBuilding(tick(stateRef.current), instanceId));
-    },
+    }),
     [persist],
   );
 
   const train = useCallback(
-    (troopId: string) => {
+    safeAction('trainTroop', (troopId: string) => {
       const result = enqueueTraining(tick(stateRef.current), troopId);
       if (result.error) {
         setMessage(result.error);
@@ -151,50 +170,65 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
       persist(result.state);
       setMessage('Addestramento avviato');
-    },
+    }),
     [persist],
   );
 
-  const startMission = useCallback((missionId: string) => {
-    const check = canStartMission(stateRef.current, missionId);
-    if (!check.ok) {
-      setMessage(check.reason);
-      return null;
-    }
-    const c = createCombatState(missionId, stateRef.current.army);
-    setCombat(c);
-    return c;
-  }, []);
+  const startMission = useCallback(
+    safeAction('startMission', (missionId: string) => {
+      const check = canStartMission(stateRef.current, missionId);
+      if (!check.ok) {
+        setMessage(check.reason);
+        return null;
+      }
+      const c = createCombatState(missionId, stateRef.current.army);
+      setCombat(c);
+      return c;
+    }),
+    [],
+  );
 
-  const deploy = useCallback((troopId: string, x: number, y: number) => {
-    setCombat((c) => (c ? deployTroop(c, troopId, x, y) : c));
-  }, []);
+  const deploy = useCallback(
+    safeAction('deployTroop', (troopId: string, x: number, y: number) => {
+      setCombat((c) => (c ? deployTroop(c, troopId, x, y) : c));
+    }),
+    [],
+  );
 
-  const autoDeploy = useCallback(() => {
-    setCombat((c) => (c ? autoDeployAll(c) : c));
-  }, []);
+  const autoDeploy = useCallback(
+    safeAction('autoDeploy', () => {
+      setCombat((c) => (c ? autoDeployAll(c) : c));
+    }),
+    [],
+  );
 
-  const finishCombat = useCallback(() => {
-    const c = combatRef.current;
-    if (!c) return;
-    const next = applyMissionResult(
-      tick(stateRef.current),
-      c.missionId,
-      c.stars,
-      c.victory,
-    );
-    persist(next);
-    setCombat(null);
-    if (c.victory) setMessage(`Missione completata! ${c.stars}★`);
-    else setMessage('Missione fallita');
-  }, [persist]);
+  const finishCombat = useCallback(
+    safeAction('finishCombat', () => {
+      const c = combatRef.current;
+      if (!c) return;
+      const next = applyMissionResult(
+        tick(stateRef.current),
+        c.missionId,
+        c.stars,
+        c.victory,
+      );
+      persist(next);
+      setCombat(null);
+      if (c.victory) setMessage(`Missione completata! ${c.stars}★`);
+      else setMessage('Missione fallita');
+    }),
+    [persist],
+  );
 
-  const reset = useCallback(async () => {
-    const fresh = await resetGame();
-    setState(fresh);
-    setCombat(null);
-    setMessage('Nuova partita');
-  }, []);
+  const reset = useCallback(
+    safeAction('resetGame', async () => {
+      const fresh = await resetGame();
+      setState(fresh);
+      setCombat(null);
+      setMessage('Nuova partita');
+    }),
+    [],
+  );
 
   const value = useMemo(
     () => ({
