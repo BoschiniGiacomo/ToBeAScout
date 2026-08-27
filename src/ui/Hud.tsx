@@ -51,7 +51,9 @@ export function BuildPanel() {
         })}
       </ScrollView>
       {placementBuilding ? (
-        <Text style={styles.hint}>Tocca la mappa per piazzare</Text>
+        <Text style={styles.hint}>
+          Modalità piazzamento: muovi sulla griglia (verde/rosso), poi tocca per confermare
+        </Text>
       ) : null}
     </View>
   );

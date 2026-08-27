@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
+import { canPlace } from '../sim/buildings';
 import { resolveBuildingSprite } from './assets';
 import {
   TILE_H,
@@ -25,6 +26,11 @@ interface Props {
   mode?: 'village' | 'combat';
   combat?: CombatState | null;
   selectedBuildingId?: string | null;
+  /** Edificio scelto dal pannello: attiva modalità piazzamento con ghost */
+  placementBuildingId?: string | null;
+  hoverTile?: { x: number; y: number } | null;
+  onHoverTile?: (gx: number, gy: number) => void;
+  onConfirmPlace?: (gx: number, gy: number) => void;
   onTapTile?: (gx: number, gy: number) => void;
   onSelectBuilding?: (instanceId: string | null) => void;
 }
@@ -42,6 +48,61 @@ type DrawItem = {
   selected: boolean;
   sprite: number | null;
 };
+
+/** Rombo isometrico per una cella della griglia (anteprima piazzamento). */
+const IsoCell = memo(function IsoCell({
+  x,
+  y,
+  valid,
+}: {
+  x: number;
+  y: number;
+  valid: boolean;
+}) {
+  const p = gridToScreen(x, y);
+  const color = valid ? 'rgba(76, 175, 80, 0.55)' : 'rgba(229, 57, 53, 0.55)';
+  const border = valid ? '#81C784' : '#EF9A9A';
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: p.x - TILE_W / 2,
+        top: p.y - TILE_H / 2,
+        width: TILE_W,
+        height: TILE_H,
+        zIndex: 5000,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: TILE_W / 2 - 2,
+          top: 0,
+          width: 4,
+          height: TILE_H,
+          backgroundColor: border,
+          transform: [{ scaleX: TILE_W / 4 }],
+          opacity: 0,
+        }}
+      />
+      {/* Diamond via rotated square approximating iso tile */}
+      <View
+        style={{
+          position: 'absolute',
+          left: TILE_W / 2 - TILE_H / 2,
+          top: 0,
+          width: TILE_H,
+          height: TILE_H,
+          backgroundColor: color,
+          borderWidth: 1.5,
+          borderColor: border,
+          transform: [{ rotate: '45deg' }, { scaleX: TILE_W / TILE_H }],
+        }}
+      />
+    </View>
+  );
+});
 
 const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
   const p = gridToScreen(x, y);
@@ -65,7 +126,6 @@ const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
 
 const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
   const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-  // Sprite art is taller than footprint; size from tiles + vertical room for roof/frame
   const bw = Math.max(36, item.w * TILE_W * 0.95);
   const bh = item.sprite
     ? Math.max(48, item.h * TILE_H * 1.15 + bw * 0.55)
@@ -103,11 +163,7 @@ const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }
         }}
       />
       {item.sprite ? (
-        <Image
-          source={item.sprite}
-          style={{ width: bw, height: bh }}
-          resizeMode="contain"
-        />
+        <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
       ) : (
         <Text style={styles.label} numberOfLines={1}>
           {item.label}
@@ -147,6 +203,18 @@ function toDrawItem(
   };
 }
 
+function eventToGrid(
+  ex: number,
+  ey: number,
+  offsetX: number,
+  offsetY: number,
+  scale: number,
+): { x: number; y: number } {
+  const localX = (ex - offsetX) / scale;
+  const localY = (ey - offsetY) / scale;
+  return screenToGrid(localX, localY);
+}
+
 export function IsometricWorld({
   state,
   width,
@@ -154,10 +222,15 @@ export function IsometricWorld({
   mode = 'village',
   combat,
   selectedBuildingId,
+  placementBuildingId,
+  hoverTile,
+  onHoverTile,
+  onConfirmPlace,
   onTapTile,
   onSelectBuilding,
 }: Props) {
   const gridSize = combat?.mapSize ?? META.gridSize;
+  const placing = mode === 'village' && !!placementBuildingId;
   const offsetX = useSharedValue(width * 0.35);
   const offsetY = useSharedValue(height * 0.2);
   const scale = useSharedValue(0.9);
@@ -165,10 +238,21 @@ export function IsometricWorld({
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
 
+  const reportHover = useCallback(
+    (gx: number, gy: number) => {
+      onHoverTile?.(gx, gy);
+    },
+    [onHoverTile],
+  );
+
   const handleTap = useCallback(
     (gx: number, gy: number) => {
       if (mode === 'combat') {
         onTapTile?.(gx, gy);
+        return;
+      }
+      if (placementBuildingId) {
+        onConfirmPlace?.(gx, gy);
         return;
       }
       const hit = state.buildings.find((b) => {
@@ -178,10 +262,19 @@ export function IsometricWorld({
       onSelectBuilding?.(hit?.instanceId ?? null);
       onTapTile?.(gx, gy);
     },
-    [mode, onSelectBuilding, onTapTile, state.buildings],
+    [
+      mode,
+      onConfirmPlace,
+      onSelectBuilding,
+      onTapTile,
+      placementBuildingId,
+      state.buildings,
+    ],
   );
 
-  const pan = Gesture.Pan()
+  // Camera pan: 1 finger when not placing, 2 fingers while placing
+  const cameraPan = Gesture.Pan()
+    .minPointers(placing ? 2 : 1)
     .onBegin(() => {
       startX.value = offsetX.value;
       startY.value = offsetY.value;
@@ -189,6 +282,20 @@ export function IsometricWorld({
     .onUpdate((e) => {
       offsetX.value = startX.value + e.translationX;
       offsetY.value = startY.value + e.translationY;
+    });
+
+  // While placing: 1 finger moves the ghost over the grid
+  const placePointer = Gesture.Pan()
+    .enabled(placing)
+    .minPointers(1)
+    .maxPointers(1)
+    .onBegin((e) => {
+      const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+      runOnJS(reportHover)(g.x, g.y);
+    })
+    .onUpdate((e) => {
+      const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+      runOnJS(reportHover)(g.x, g.y);
     });
 
   const pinch = Gesture.Pinch()
@@ -200,13 +307,15 @@ export function IsometricWorld({
     });
 
   const tap = Gesture.Tap().onEnd((e) => {
-    const localX = (e.x - offsetX.value) / scale.value;
-    const localY = (e.y - offsetY.value) / scale.value;
-    const g = screenToGrid(localX, localY);
+    const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+    if (placing) runOnJS(reportHover)(g.x, g.y);
     runOnJS(handleTap)(g.x, g.y);
   });
 
-  const composed = Gesture.Simultaneous(pan, pinch, tap);
+  const composed = placing
+    ? Gesture.Simultaneous(placePointer, cameraPan, pinch, tap)
+    : Gesture.Simultaneous(cameraPan, pinch, tap);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: offsetX.value },
@@ -222,6 +331,36 @@ export function IsometricWorld({
     }
     return list;
   }, [gridSize]);
+
+  const preview = useMemo(() => {
+    if (!placing || !placementBuildingId || !hoverTile) return null;
+    const def = getBuildingDef(placementBuildingId);
+    const check = canPlace(state, placementBuildingId, hoverTile.x, hoverTile.y);
+    const cells: { x: number; y: number }[] = [];
+    for (let dy = 0; dy < def.footprint.h; dy++) {
+      for (let dx = 0; dx < def.footprint.w; dx++) {
+        cells.push({ x: hoverTile.x + dx, y: hoverTile.y + dy });
+      }
+    }
+    return {
+      valid: check.ok,
+      cells,
+      ghost: toDrawItem(
+        'ghost',
+        hoverTile.x,
+        hoverTile.y,
+        def.footprint.w,
+        def.footprint.h,
+        placementBuildingId,
+        1,
+        def.color,
+        def.name.slice(0, 4),
+        depthKey(hoverTile.x, hoverTile.y, def.footprint.w, def.footprint.h, 9),
+        1,
+        false,
+      ),
+    };
+  }, [placing, placementBuildingId, hoverTile, state]);
 
   const sorted = useMemo((): DrawItem[] => {
     if (mode === 'combat' && combat) {
@@ -298,9 +437,31 @@ export function IsometricWorld({
             {sorted.map((item) => (
               <BuildingSprite key={item.key} item={item} />
             ))}
+            {preview
+              ? preview.cells.map((c) => (
+                  <IsoCell
+                    key={`prev-${c.x}-${c.y}`}
+                    x={c.x}
+                    y={c.y}
+                    valid={preview.valid}
+                  />
+                ))
+              : null}
+            {preview ? (
+              <View style={{ opacity: preview.valid ? 0.85 : 0.45 }}>
+                <BuildingSprite item={preview.ghost} />
+              </View>
+            ) : null}
           </Animated.View>
         </View>
       </GestureDetector>
+      {placing ? (
+        <View style={styles.placeBanner} pointerEvents="none">
+          <Text style={styles.placeBannerText}>
+            Trascina sulla griglia · verde = ok · rosso = no · tocca per confermare
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -314,5 +475,21 @@ const styles = StyleSheet.create({
     color: '#FFFDE7',
     fontSize: 10,
     fontWeight: '700',
+  },
+  placeBanner: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  placeBannerText: {
+    color: '#FFFDE7',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +19,7 @@ import {
   SelectedBuildingPanel,
   TrainPanel,
 } from '../src/ui/Hud';
+import { canPlace } from '../src/sim/buildings';
 
 export default function VillageScreen() {
   const {
@@ -28,6 +29,7 @@ export default function VillageScreen() {
     clearMessage,
     place,
     placementBuilding,
+    setPlacementBuilding,
     selectedBuildingId,
     setSelectedBuildingId,
     reset,
@@ -36,6 +38,11 @@ export default function VillageScreen() {
   const sideW = Math.min(320, Math.max(240, width * 0.34));
   const mapW = width - sideW;
   const mapH = height;
+  const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!placementBuilding) setHoverTile(null);
+  }, [placementBuilding]);
 
   useEffect(() => {
     if (!message) return;
@@ -61,9 +68,23 @@ export default function VillageScreen() {
             width={mapW}
             height={mapH}
             selectedBuildingId={selectedBuildingId}
+            placementBuildingId={placementBuilding}
+            hoverTile={hoverTile}
             onSelectBuilding={setSelectedBuildingId}
-            onTapTile={(gx, gy) => {
-              if (placementBuilding) place(placementBuilding, gx, gy);
+            onHoverTile={(gx, gy) => {
+              setHoverTile((prev) =>
+                prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
+              );
+            }}
+            onConfirmPlace={(gx, gy) => {
+              if (!placementBuilding) return;
+              const check = canPlace(state, placementBuilding, gx, gy);
+              if (!check.ok) {
+                // resta in modalità piazzamento, hover rosso già visibile
+                return;
+              }
+              place(placementBuilding, gx, gy);
+              setHoverTile(null);
             }}
           />
           {message ? (
@@ -79,6 +100,17 @@ export default function VillageScreen() {
             <EraStrip />
             <SelectedBuildingPanel />
             <BuildPanel />
+            {placementBuilding ? (
+              <Pressable
+                style={styles.cancelPlace}
+                onPress={() => {
+                  setPlacementBuilding(null);
+                  setHoverTile(null);
+                }}
+              >
+                <Text style={styles.cancelPlaceText}>Annulla piazzamento</Text>
+              </Pressable>
+            ) : null}
             <TrainPanel />
             <View style={styles.footer}>
               <Link href="/missions" asChild>
@@ -126,6 +158,15 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   toastText: { color: '#FFF' },
+  cancelPlace: {
+    marginHorizontal: 10,
+    marginBottom: 6,
+    backgroundColor: '#5D4037',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelPlaceText: { color: '#FFE0B2', fontWeight: '700' },
   footer: {
     flexDirection: 'row',
     gap: 8,
