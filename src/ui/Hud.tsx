@@ -13,9 +13,6 @@ export function ResourceBar() {
   return (
     <View style={styles.resourceBar}>
       <Text style={styles.brand}>ToBeAScout</Text>
-      <Text style={styles.res}>Legna {Math.floor(state.resources.legna)}</Text>
-      <Text style={styles.res}>Acqua {Math.floor(state.resources.acqua)}</Text>
-      <Text style={styles.res}>Impegno {Math.floor(state.resources.impegno)}</Text>
       <Text style={styles.era}>{era.name}</Text>
       {state.totem ? <Text style={styles.totem}>Totem: {state.totem}</Text> : null}
     </View>
@@ -167,7 +164,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  res: { color: '#C8E6C9', fontSize: 13 },
   era: { color: '#FFF59D', fontSize: 12, marginTop: 2 },
   totem: { color: '#FFE082', fontSize: 12 },
   panel: {

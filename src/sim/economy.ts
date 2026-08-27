@@ -31,6 +31,34 @@ export function spend(have: Resources, cost: Resources): Resources {
   };
 }
 
+/** Max wallet storage from collectors / QG (Clash-style capacity). */
+export function getStorageCaps(state: GameState): Resources {
+  const caps: Resources = { legna: 0, acqua: 0, impegno: 0 };
+  const now = Date.now();
+  for (const b of state.buildings) {
+    if (b.buildEndsAt && b.buildEndsAt > now) continue;
+    const def = getBuildingDef(b.buildingId);
+    if (def.produces) {
+      const c = def.produces.capacity[b.level - 1] ?? def.produces.capacity[0] ?? 0;
+      caps[def.produces.resource] += c;
+    }
+  }
+  // Soft caps if no storage built yet
+  if (caps.legna < 500) caps.legna = 500;
+  if (caps.acqua < 500) caps.acqua = 500;
+
+  const qg = getQgLevel(state);
+  const impegnoByQg = [0, 300, 800, 1600, 3200, 6000];
+  caps.impegno = impegnoByQg[qg] ?? 6000;
+
+  return caps;
+}
+
+export function formatResourceAmount(n: number): string {
+  const v = Math.floor(Math.max(0, n));
+  return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
 export function createInitialState(now = Date.now()): GameState {
   const make = (buildingId: string, x: number, y: number): PlacedBuilding => {
     const def = getBuildingDef(buildingId);

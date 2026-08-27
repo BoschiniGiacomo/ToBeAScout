@@ -19,6 +19,7 @@ import {
   SelectedBuildingPanel,
   TrainPanel,
 } from '../src/ui/Hud';
+import { ResourceBarsHud } from '../src/ui/ResourceBarsHud';
 import { canPlace } from '../src/sim/buildings';
 
 export default function VillageScreen() {
@@ -87,6 +88,7 @@ export default function VillageScreen() {
               setHoverTile(null);
             }}
           />
+          <ResourceBarsHud />
           {message ? (
             <View style={styles.toast}>
               <Text style={styles.toastText}>{message}</Text>
