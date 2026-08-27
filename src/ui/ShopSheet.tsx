@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useGame } from './GameContext';
 import { BUILDINGS, TROOPS } from '../sim/content';
 import { isBuildingUnlocked } from '../sim/buildings';
 import { armyCampCapacity, armyHousingUsed, isTroopUnlocked } from '../sim/training';
-import { freeBuilderSlots } from '../sim/economy';
+import { formatResourceAmount, freeBuilderSlots } from '../sim/economy';
+import { resolveBuildingSprite } from '../render/assets';
+import type { Resources } from '../sim/types';
+
+const LEGNA_ICON = require('../../assets/ui/resource_legna.png');
+const ACQUA_ICON = require('../../assets/ui/resource_acqua.png');
+const IMPEGNO_ICON = require('../../assets/ui/resource_impegno.png');
 
 type ShopTab = 'edifici' | 'truppe';
 
@@ -20,8 +28,37 @@ type Props = {
   onClose: () => void;
 };
 
-/** Clash-style shop: buildings + troops, only when opened. */
+function CostRow({ cost }: { cost: Resources }) {
+  return (
+    <View style={styles.costRow}>
+      {cost.legna > 0 ? (
+        <View style={styles.costItem}>
+          <Text style={styles.costNum}>{formatResourceAmount(cost.legna)}</Text>
+          <Image source={LEGNA_ICON} style={styles.costIcon} />
+        </View>
+      ) : null}
+      {cost.acqua > 0 ? (
+        <View style={styles.costItem}>
+          <Text style={styles.costNum}>{formatResourceAmount(cost.acqua)}</Text>
+          <Image source={ACQUA_ICON} style={styles.costIcon} />
+        </View>
+      ) : null}
+      {cost.impegno > 0 ? (
+        <View style={styles.costItem}>
+          <Text style={styles.costNum}>{formatResourceAmount(cost.impegno)}</Text>
+          <Image source={IMPEGNO_ICON} style={styles.costIcon} />
+        </View>
+      ) : null}
+      {cost.legna <= 0 && cost.acqua <= 0 && cost.impegno <= 0 ? (
+        <Text style={styles.costNum}>Gratis</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Clash-of-Clans style shop modal. */
 export function ShopSheet({ visible, onClose }: Props) {
+  const { width, height } = useWindowDimensions();
   const { state, placementBuilding, setPlacementBuilding, train, setSelectedBuildingId } =
     useGame();
   const [tab, setTab] = useState<ShopTab>('edifici');
@@ -33,6 +70,11 @@ export function ShopSheet({ visible, onClose }: Props) {
   );
   const unlockedTroops = TROOPS.filter((t) => isTroopUnlocked(state, t.id));
 
+  const panelW = Math.min(width * 0.92, 720);
+  const panelH = Math.min(height * 0.88, 420);
+  const cardW = Math.max(132, Math.min(160, panelW * 0.22));
+  const cardH = Math.max(210, panelH - 130);
+
   const pickBuilding = (id: string) => {
     setSelectedBuildingId(null);
     setPlacementBuilding(placementBuilding === id ? null : id);
@@ -40,97 +82,152 @@ export function ShopSheet({ visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <Pressable style={styles.dismiss} onPress={onClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.title}>Negozio</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={styles.close}>✕</Text>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[styles.panel, { width: panelW, height: panelH }]}>
+          {/* Tab strip */}
+          <View style={styles.tabStrip}>
+            <View style={styles.tabsRow}>
+              <Pressable
+                style={[styles.tab, tab === 'edifici' && styles.tabActive]}
+                onPress={() => setTab('edifici')}
+              >
+                <Text style={[styles.tabGlyph, tab === 'edifici' && styles.tabGlyphOn]}>E</Text>
+                <Text style={[styles.tabLabel, tab === 'edifici' && styles.tabLabelOn]}>
+                  Edifici
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.tab, tab === 'truppe' && styles.tabActive]}
+                onPress={() => setTab('truppe')}
+              >
+                <Text style={[styles.tabGlyph, tab === 'truppe' && styles.tabGlyphOn]}>T</Text>
+                <Text style={[styles.tabLabel, tab === 'truppe' && styles.tabLabelOn]}>
+                  Truppe
+                </Text>
+              </Pressable>
+            </View>
+            <Pressable style={styles.closeBtn} onPress={onClose} accessibilityLabel="Chiudi">
+              <Text style={styles.closeX}>✕</Text>
             </Pressable>
           </View>
 
-          <View style={styles.tabs}>
-            <Pressable
-              style={[styles.tab, tab === 'edifici' && styles.tabOn]}
-              onPress={() => setTab('edifici')}
-            >
-              <Text style={[styles.tabText, tab === 'edifici' && styles.tabTextOn]}>Edifici</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, tab === 'truppe' && styles.tabOn]}
-              onPress={() => setTab('truppe')}
-            >
-              <Text style={[styles.tabText, tab === 'truppe' && styles.tabTextOn]}>Truppe</Text>
-            </Pressable>
-          </View>
+          {/* Content */}
+          <View style={styles.body}>
+            <Text style={styles.shopTitle}>
+              {tab === 'edifici' ? 'Negozio Edifici' : 'Addestra Truppe'}
+            </Text>
 
-          {tab === 'edifici' ? (
-            <>
-              <Text style={styles.meta}>Costruttori liberi: {builders}</Text>
-              <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+            {tab === 'edifici' ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsRow}
+              >
                 {unlockedBuildings.map((b) => {
                   const cost = b.levels[0].buildCost;
+                  const sprite = resolveBuildingSprite(b.spriteKey, 1);
                   const active = placementBuilding === b.id;
                   return (
                     <Pressable
                       key={b.id}
-                      style={[styles.card, active && styles.cardActive]}
+                      style={[
+                        styles.card,
+                        { width: cardW, height: cardH },
+                        active && styles.cardActive,
+                      ]}
                       onPress={() => pickBuilding(b.id)}
                     >
-                      <View style={[styles.swatch, { backgroundColor: b.color }]} />
-                      <Text style={styles.cardTitle} numberOfLines={2}>
+                      <Text style={styles.cardName} numberOfLines={2}>
                         {b.name}
                       </Text>
-                      <Text style={styles.cardSub}>
-                        {cost.legna}L · {cost.acqua}A
-                        {cost.impegno ? ` · ${cost.impegno}I` : ''}
-                      </Text>
+                      <View style={styles.cardArt}>
+                        {sprite ? (
+                          <Image source={sprite} style={styles.cardSprite} resizeMode="contain" />
+                        ) : (
+                          <View style={[styles.cardFallback, { backgroundColor: b.color }]} />
+                        )}
+                      </View>
+                      <View style={styles.cardFooter}>
+                        <CostRow cost={cost} />
+                      </View>
                     </Pressable>
                   );
                 })}
               </ScrollView>
-            </>
-          ) : (
-            <>
-              <Text style={styles.meta}>
-                Esercito {used}/{cap}
-                {state.trainingQueue.length > 0
-                  ? ` · in coda ${state.trainingQueue.length}`
-                  : ''}
-              </Text>
-              <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-                {unlockedTroops.map((t) => (
-                  <Pressable key={t.id} style={styles.card} onPress={() => train(t.id)}>
-                    <View style={[styles.swatch, { backgroundColor: '#5D4037' }]} />
-                    <Text style={styles.cardTitle} numberOfLines={2}>
-                      {t.name}
-                    </Text>
-                    <Text style={styles.cardSub}>
-                      {t.trainCost.legna}L · {t.housing} posti · {t.trainTimeSec}s
-                    </Text>
-                  </Pressable>
-                ))}
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsRow}
+              >
                 {unlockedTroops.length === 0 ? (
                   <Text style={styles.empty}>Nessuna truppa sbloccata</Text>
-                ) : null}
-              </ScrollView>
-              {state.army.length > 0 ? (
-                <View style={styles.armyRow}>
-                  {state.army.map((u) => {
-                    const t = TROOPS.find((x) => x.id === u.troopId);
-                    return (
-                      <Text key={u.troopId} style={styles.armyChip}>
-                        {t?.name ?? u.troopId} ×{u.count}
+                ) : (
+                  unlockedTroops.map((t) => (
+                    <Pressable
+                      key={t.id}
+                      style={[styles.card, { width: cardW, height: cardH }]}
+                      onPress={() => train(t.id)}
+                    >
+                      <Text style={styles.cardName} numberOfLines={2}>
+                        {t.name}
                       </Text>
-                    );
-                  })}
-                </View>
-              ) : null}
-            </>
-          )}
+                      <View style={styles.cardArt}>
+                        <View style={styles.troopBadge}>
+                          <Text style={styles.troopBadgeText}>{t.housing}</Text>
+                          <Text style={styles.troopBadgeSub}>posti</Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardFooter}>
+                        <Text style={styles.trainMeta}>{t.trainTimeSec}s</Text>
+                        <CostRow cost={t.trainCost} />
+                      </View>
+                    </Pressable>
+                  ))
+                )}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Bottom status */}
+          <View style={styles.bottomBar}>
+            {tab === 'edifici' ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>Costruttori {builders}</Text>
+              </View>
+            ) : (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>
+                  Esercito {used}/{cap}
+                  {state.trainingQueue.length > 0
+                    ? ` · coda ${state.trainingQueue.length}`
+                    : ''}
+                </Text>
+              </View>
+            )}
+            <View style={styles.walletRow}>
+              <View style={styles.walletPill}>
+                <Text style={styles.walletNum}>
+                  {formatResourceAmount(state.resources.legna)}
+                </Text>
+                <Image source={LEGNA_ICON} style={styles.walletIcon} />
+              </View>
+              <View style={styles.walletPill}>
+                <Text style={styles.walletNum}>
+                  {formatResourceAmount(state.resources.acqua)}
+                </Text>
+                <Image source={ACQUA_ICON} style={styles.walletIcon} />
+              </View>
+              <View style={styles.walletPill}>
+                <Text style={styles.walletNum}>
+                  {formatResourceAmount(state.resources.impegno)}
+                </Text>
+                <Image source={IMPEGNO_ICON} style={styles.walletIcon} />
+              </View>
+            </View>
+          </View>
         </View>
       </View>
     </Modal>
@@ -140,92 +237,197 @@ export function ShopSheet({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  dismiss: { flex: 1 },
-  sheet: {
-    maxHeight: '72%',
-    backgroundColor: '#1A2E22',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderTopWidth: 2,
-    borderColor: '#C9A227',
-    paddingBottom: 20,
-    paddingHorizontal: 14,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  header: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  title: { color: '#FFF8E1', fontSize: 20, fontWeight: '800' },
-  close: { color: '#ECEFF1', fontSize: 20, fontWeight: '700', paddingHorizontal: 6 },
-  tabs: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#243528',
-    alignItems: 'center',
-  },
-  tabOn: { backgroundColor: '#C9A227' },
-  tabText: { color: '#A5D6A7', fontWeight: '700' },
-  tabTextOn: { color: '#1A1200' },
-  meta: { color: '#C8E6C9', fontSize: 12, marginBottom: 8 },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingBottom: 12,
-  },
-  card: {
-    width: '30%',
-    minWidth: 100,
-    flexGrow: 1,
-    backgroundColor: '#2E4A32',
-    borderRadius: 12,
+    justifyContent: 'center',
     padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  cardActive: {
-    borderColor: '#DCEDC8',
-    backgroundColor: '#558B2F',
+  panel: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#5D4037',
+    backgroundColor: '#2A2A2A',
+    zIndex: 2,
   },
-  swatch: {
+  tabStrip: {
+    backgroundColor: '#E8DCC8',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    minHeight: 54,
+  },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  tab: {
+    minWidth: 72,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    backgroundColor: '#C4B59A',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderBottomWidth: 0,
+    borderColor: '#8D7B5E',
+  },
+  tabActive: {
+    backgroundColor: '#3A3A3A',
+    borderColor: '#F9A825',
+    paddingBottom: 10,
+    transform: [{ translateY: 2 }],
+  },
+  tabGlyph: { fontSize: 18, color: '#4E342E', fontWeight: '900' },
+  tabGlyphOn: { color: '#FFE082' },
+  tabLabel: { fontSize: 11, fontWeight: '800', color: '#4E342E', marginTop: 2 },
+  tabLabelOn: { color: '#FFF8E1' },
+  closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 8,
+    backgroundColor: '#E53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
     marginBottom: 6,
+    borderWidth: 2,
+    borderColor: '#B71C1C',
   },
-  cardTitle: { color: '#F1F8E9', fontWeight: '800', fontSize: 12 },
-  cardSub: { color: '#A5D6A7', fontSize: 11, marginTop: 4 },
-  empty: { color: '#FFF59D', padding: 12 },
-  armyRow: {
+  closeX: { color: '#FFF', fontWeight: '900', fontSize: 18 },
+  body: {
+    flex: 1,
+    backgroundColor: '#2F2F2F',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  shopTitle: {
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 8,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 0,
+  },
+  cardsRow: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  card: {
+    backgroundColor: '#5BA3D9',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#2E6FA0',
+  },
+  cardActive: {
+    borderColor: '#FFF59D',
+    borderWidth: 3,
+  },
+  cardName: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 6,
+    paddingTop: 8,
+    minHeight: 40,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  cardArt: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  cardSprite: { width: 96, height: 96 },
+  cardFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  troopBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 3,
+    borderColor: '#FFF8E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  troopBadgeText: { color: '#FFF', fontWeight: '900', fontSize: 22 },
+  troopBadgeSub: { color: '#E3F2FD', fontSize: 10, fontWeight: '700' },
+  cardFooter: {
+    backgroundColor: 'rgba(20,20,20,0.72)',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    gap: 4,
+  },
+  trainMeta: { color: '#FFE082', fontSize: 11, fontWeight: '700' },
+  costRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 6,
-    paddingTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.12)',
   },
-  armyChip: {
-    color: '#C8E6C9',
-    fontSize: 11,
-    backgroundColor: '#243528',
+  costItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  costNum: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 12,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  costIcon: { width: 16, height: 16 },
+  empty: {
+    color: '#FFF59D',
+    fontWeight: '700',
+    padding: 24,
+    alignSelf: 'center',
+  },
+  bottomBar: {
+    backgroundColor: '#7A8F3A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderTopWidth: 2,
+    borderTopColor: '#5D6F2A',
+  },
+  statusPill: {
+    backgroundColor: '#3E4A1C',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statusText: { color: '#F1F8E9', fontWeight: '800', fontSize: 12 },
+  walletRow: { flexDirection: 'row', gap: 6, flexShrink: 1 },
+  walletPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#3E4A1C',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 14,
   },
+  walletNum: { color: '#FFF', fontWeight: '800', fontSize: 11 },
+  walletIcon: { width: 16, height: 16 },
 });
