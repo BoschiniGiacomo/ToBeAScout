@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
+import { resolveBuildingSprite } from './assets';
 import {
   TILE_H,
   TILE_W,
@@ -39,6 +40,7 @@ type DrawItem = {
   depth: number;
   hpRatio: number;
   selected: boolean;
+  sprite: number | null;
 };
 
 const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
@@ -63,8 +65,12 @@ const TileDot = memo(function TileDot({ x, y }: { x: number; y: number }) {
 
 const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }) {
   const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-  const bw = Math.max(22, item.w * TILE_W * 0.45);
-  const bh = Math.max(26, item.h * TILE_H * 0.9 + 18);
+  // Sprite art is taller than footprint; size from tiles + vertical room for roof/frame
+  const bw = Math.max(36, item.w * TILE_W * 0.95);
+  const bh = item.sprite
+    ? Math.max(48, item.h * TILE_H * 1.15 + bw * 0.55)
+    : Math.max(26, item.h * TILE_H * 0.9 + 18);
+
   return (
     <View
       pointerEvents="none"
@@ -74,13 +80,14 @@ const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }
         top: c.y - bh,
         width: bw,
         height: bh,
-        borderRadius: 4,
-        backgroundColor: item.color,
+        borderRadius: item.sprite ? 0 : 4,
+        backgroundColor: item.sprite ? 'transparent' : item.color,
         borderWidth: item.selected ? 2 : 0,
         borderColor: '#FFF59D',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: item.sprite ? 'flex-end' : 'center',
         zIndex: Math.floor(item.depth),
+        overflow: 'visible',
       }}
     >
       <View
@@ -92,14 +99,53 @@ const BuildingSprite = memo(function BuildingSprite({ item }: { item: DrawItem }
           width: Math.max(4, bw * item.hpRatio),
           backgroundColor: '#A5D6A7',
           borderRadius: 1,
+          zIndex: 2,
         }}
       />
-      <Text style={styles.label} numberOfLines={1}>
-        {item.label}
-      </Text>
+      {item.sprite ? (
+        <Image
+          source={item.sprite}
+          style={{ width: bw, height: bh }}
+          resizeMode="contain"
+        />
+      ) : (
+        <Text style={styles.label} numberOfLines={1}>
+          {item.label}
+        </Text>
+      )}
     </View>
   );
 });
+
+function toDrawItem(
+  key: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  buildingId: string,
+  level: number,
+  color: string,
+  label: string,
+  depth: number,
+  hpRatio: number,
+  selected: boolean,
+): DrawItem {
+  const def = getBuildingDef(buildingId);
+  return {
+    key,
+    x,
+    y,
+    w,
+    h,
+    color,
+    label,
+    depth,
+    hpRatio,
+    selected,
+    sprite: resolveBuildingSprite(def.spriteKey, level),
+  };
+}
 
 export function IsometricWorld({
   state,
@@ -181,18 +227,23 @@ export function IsometricWorld({
     if (mode === 'combat' && combat) {
       const items: DrawItem[] = combat.buildings
         .filter((b) => !b.destroyed)
-        .map((b) => ({
-          key: b.instanceId,
-          x: b.x,
-          y: b.y,
-          w: b.w,
-          h: b.h,
-          color: getBuildingDef(b.buildingId).color,
-          label: getBuildingDef(b.buildingId).name.slice(0, 3),
-          depth: depthKey(b.x, b.y, b.w, b.h, 1),
-          hpRatio: b.maxHp > 0 ? b.hp / b.maxHp : 0,
-          selected: false,
-        }));
+        .map((b) => {
+          const def = getBuildingDef(b.buildingId);
+          return toDrawItem(
+            b.instanceId,
+            b.x,
+            b.y,
+            b.w,
+            b.h,
+            b.buildingId,
+            b.level,
+            def.color,
+            def.name.slice(0, 3),
+            depthKey(b.x, b.y, b.w, b.h, 1),
+            b.maxHp > 0 ? b.hp / b.maxHp : 0,
+            false,
+          );
+        });
       for (const u of combat.units) {
         const def = getTroopDef(u.troopId);
         items.push({
@@ -206,6 +257,7 @@ export function IsometricWorld({
           depth: depthKey(u.x, u.y, 1, 1, 2),
           hpRatio: u.maxHp > 0 ? u.hp / u.maxHp : 0,
           selected: false,
+          sprite: null,
         });
       }
       return items.sort((a, b) => a.depth - b.depth);
@@ -214,24 +266,26 @@ export function IsometricWorld({
     return (state.buildings as PlacedBuilding[])
       .map((b) => {
         const def = getBuildingDef(b.buildingId);
-        return {
-          key: b.instanceId,
-          x: b.x,
-          y: b.y,
-          w: def.footprint.w,
-          h: def.footprint.h,
-          color: def.color,
-          label: def.name.slice(0, 4),
-          depth: depthKey(b.x, b.y, def.footprint.w, def.footprint.h, 1),
-          hpRatio: 1,
-          selected: b.instanceId === selectedBuildingId,
-        };
+        return toDrawItem(
+          b.instanceId,
+          b.x,
+          b.y,
+          def.footprint.w,
+          def.footprint.h,
+          b.buildingId,
+          b.level,
+          def.color,
+          def.name.slice(0, 4),
+          depthKey(b.x, b.y, def.footprint.w, def.footprint.h, 1),
+          1,
+          b.instanceId === selectedBuildingId,
+        );
       })
       .sort((a, b) => a.depth - b.depth);
   }, [combat, mode, selectedBuildingId, state.buildings]);
 
   const worldW = gridSize * TILE_W + 80;
-  const worldH = gridSize * TILE_H + 80;
+  const worldH = gridSize * TILE_H + 120;
 
   return (
     <View style={[styles.wrap, { width, height }]}>

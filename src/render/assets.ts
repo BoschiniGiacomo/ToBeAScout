@@ -1,16 +1,16 @@
 /**
  * Sprite registry for pre-rendered PNGs.
  * Placeholder mode returns null → renderer draws colored blocks.
- * Add require() entries when art is ready, e.g.:
- *   'building_qg_1': require('../../assets/buildings/qg_lvl1.png'),
  */
 export type SpriteKey = string;
 
-const SPRITES: Record<string, number | null> = {
-  // buildings — populate when PNGs exist
-  // 'building_qg_1': require('../../assets/buildings/qg_lvl1.png'),
-  // troops
-  // 'troop_falegname': require('../../assets/troops/falegname.png'),
+const SPRITES: Record<string, number> = {
+  building_pozzo: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_pozzo_1: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_pozzo_2: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_pozzo_3: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_pozzo_4: require('../../assets/buildings/pozzo_lvl1.png'),
+  building_pozzo_5: require('../../assets/buildings/pozzo_lvl1.png'),
 };
 
 export function resolveBuildingSprite(spriteKey: string, level: number): number | null {
