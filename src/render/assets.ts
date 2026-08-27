@@ -6,6 +6,12 @@ export type SpriteKey = string;
 
 const SPRITES: Record<string, number> = {
   // grass_empty.png on disk only — ground uses lightweight Views (Expo Go OOM)
+  building_qg: require('../../assets/buildings/qg_lvl1.png'),
+  building_qg_1: require('../../assets/buildings/qg_lvl1.png'),
+  building_qg_2: require('../../assets/buildings/qg_lvl1.png'),
+  building_qg_3: require('../../assets/buildings/qg_lvl1.png'),
+  building_qg_4: require('../../assets/buildings/qg_lvl1.png'),
+  building_qg_5: require('../../assets/buildings/qg_lvl1.png'),
   building_pozzo: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_1: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_2: require('../../assets/buildings/pozzo_lvl1.png'),

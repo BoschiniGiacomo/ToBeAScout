@@ -9,8 +9,7 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 | Building | `assets/buildings/{buildingId}_lvl{level}.png` |
 | Troop | `assets/troops/{troopId}.png` |
 
-Examples:
-- `assets/buildings/qg_lvl1.png`
+- `assets/buildings/qg_lvl1.png` ✅ (footprint 3×3)
 - `assets/buildings/pozzo_lvl1.png` ✅
 - `assets/buildings/deposito_legna_lvl1.png` ✅ (footprint 2×2)
 - `assets/buildings/tenda_squadriglia_lvl1.png` ✅ (footprint 2×2)
