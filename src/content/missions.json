@@ -7,15 +7,50 @@
     "durationHintMin": 3,
     "description": "Prima caccia nel Branco: recupera scorte nel bosco.",
     "mapSize": 12,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 400, "acqua": 350, "impegno": 0 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 400,
+      "acqua": 350,
+      "impegno": 0
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 1, "x": 5, "y": 5 },
-      { "buildingId": "deposito_legna", "level": 1, "x": 3, "y": 4 },
-      { "buildingId": "pozzo", "level": 1, "x": 7, "y": 4 },
-      { "buildingId": "palisata", "level": 1, "x": 4, "y": 6 },
-      { "buildingId": "palisata", "level": 1, "x": 5, "y": 7 },
-      { "buildingId": "palisata", "level": 1, "x": 6, "y": 6 }
+      {
+        "buildingId": "qg",
+        "level": 1,
+        "x": 5,
+        "y": 5
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 1,
+        "x": 3,
+        "y": 4
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 1,
+        "x": 7,
+        "y": 4
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 2,
+        "y": 6
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 8,
+        "y": 6
+      }
     ],
     "requiredHousing": 5
   },
@@ -27,16 +62,56 @@
     "durationHintMin": 5,
     "description": "Riunisci il Branco e supera la prova del Cerchio.",
     "mapSize": 12,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 600, "acqua": 500, "impegno": 0 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 600,
+      "acqua": 500,
+      "impegno": 0
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 1, "x": 5, "y": 5 },
-      { "buildingId": "deposito_legna", "level": 1, "x": 2, "y": 3 },
-      { "buildingId": "pozzo", "level": 1, "x": 8, "y": 3 },
-      { "buildingId": "tenda_squadriglia", "level": 1, "x": 7, "y": 7 },
-      { "buildingId": "palisata", "level": 1, "x": 4, "y": 4 },
-      { "buildingId": "palisata", "level": 1, "x": 5, "y": 4 },
-      { "buildingId": "palisata", "level": 1, "x": 6, "y": 4 }
+      {
+        "buildingId": "qg",
+        "level": 1,
+        "x": 5,
+        "y": 5
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 1,
+        "x": 2,
+        "y": 3
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 1,
+        "x": 8,
+        "y": 3
+      },
+      {
+        "buildingId": "tenda_squadriglia",
+        "level": 1,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 2,
+        "y": 2
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 8,
+        "y": 2
+      }
     ],
     "requiredHousing": 8,
     "requiresMission": "caccia_bianconiglio"
@@ -49,19 +124,68 @@
     "durationHintMin": 8,
     "description": "La squadriglia pianifica e vive un'uscita autonoma.",
     "mapSize": 14,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 900, "acqua": 850, "impegno": 5 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 900,
+      "acqua": 850,
+      "impegno": 5
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 2, "x": 6, "y": 6 },
-      { "buildingId": "deposito_legna", "level": 2, "x": 3, "y": 4 },
-      { "buildingId": "pozzo", "level": 2, "x": 9, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 1, "x": 5, "y": 3 },
-      { "buildingId": "palisata", "level": 1, "x": 5, "y": 5 },
-      { "buildingId": "palisata", "level": 1, "x": 6, "y": 5 },
-      { "buildingId": "palisata", "level": 1, "x": 7, "y": 5 },
-      { "buildingId": "palisata", "level": 1, "x": 5, "y": 8 },
-      { "buildingId": "palisata", "level": 1, "x": 6, "y": 8 },
-      { "buildingId": "palisata", "level": 1, "x": 7, "y": 8 }
+      {
+        "buildingId": "qg",
+        "level": 2,
+        "x": 6,
+        "y": 6
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 2,
+        "x": 3,
+        "y": 4
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 2,
+        "x": 9,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 1,
+        "x": 5,
+        "y": 3
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 3,
+        "y": 2
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 9,
+        "y": 2
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 3,
+        "y": 9
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 1,
+        "x": 9,
+        "y": 9
+      }
     ],
     "requiredHousing": 15,
     "requiresMission": "grande_urlo"
@@ -74,15 +198,56 @@
     "durationHintMin": 10,
     "description": "L'impresa di reparto: costruire e difendere un ponte.",
     "mapSize": 14,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 1200, "acqua": 1000, "impegno": 10 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 1200,
+      "acqua": 1000,
+      "impegno": 10
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 2, "x": 6, "y": 6 },
-      { "buildingId": "deposito_legna", "level": 2, "x": 2, "y": 5 },
-      { "buildingId": "pozzo", "level": 2, "x": 10, "y": 5 },
-      { "buildingId": "posto_guardia", "level": 1, "x": 4, "y": 3 },
-      { "buildingId": "segnalatore", "level": 1, "x": 8, "y": 3 },
-      { "buildingId": "tenda_squadriglia", "level": 2, "x": 8, "y": 8 }
+      {
+        "buildingId": "qg",
+        "level": 2,
+        "x": 6,
+        "y": 6
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 2,
+        "x": 2,
+        "y": 5
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 2,
+        "x": 10,
+        "y": 5
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 1,
+        "x": 4,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 1,
+        "x": 8,
+        "y": 3
+      },
+      {
+        "buildingId": "tenda_squadriglia",
+        "level": 2,
+        "x": 8,
+        "y": 8
+      }
     ],
     "requiredHousing": 20,
     "requiresMission": "uscita_squadriglia"
@@ -95,15 +260,56 @@
     "durationHintMin": 12,
     "description": "Approfondisci una tecnica con altri esploratori e guide.",
     "mapSize": 14,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 1400, "acqua": 1300, "impegno": 15 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 1400,
+      "acqua": 1300,
+      "impegno": 15
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 2, "x": 6, "y": 6 },
-      { "buildingId": "campo_competenza", "level": 1, "x": 3, "y": 3 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 5, "y": 2 },
-      { "buildingId": "segnalatore", "level": 1, "x": 8, "y": 4 },
-      { "buildingId": "deposito_legna", "level": 2, "x": 9, "y": 8 },
-      { "buildingId": "pozzo", "level": 2, "x": 2, "y": 8 }
+      {
+        "buildingId": "qg",
+        "level": 2,
+        "x": 6,
+        "y": 6
+      },
+      {
+        "buildingId": "campo_competenza",
+        "level": 1,
+        "x": 3,
+        "y": 3
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 5,
+        "y": 2
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 1,
+        "x": 8,
+        "y": 4
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 2,
+        "x": 9,
+        "y": 8
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 2,
+        "x": 2,
+        "y": 8
+      }
     ],
     "requiredHousing": 22,
     "requiresMission": "impresa_ponte"
@@ -116,17 +322,62 @@
     "durationHintMin": 15,
     "description": "Verso i brevetti: metti le competenze a servizio degli altri.",
     "mapSize": 15,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 1800, "acqua": 1700, "impegno": 25 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 1800,
+      "acqua": 1700,
+      "impegno": 25
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 2, "x": 7, "y": 7 },
-      { "buildingId": "maestro_specialita", "level": 1, "x": 4, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 6, "y": 3 },
-      { "buildingId": "posto_guardia", "level": 1, "x": 9, "y": 5 },
-      { "buildingId": "segnalatore", "level": 1, "x": 3, "y": 8 },
-      { "buildingId": "palisata", "level": 2, "x": 6, "y": 6 },
-      { "buildingId": "palisata", "level": 2, "x": 7, "y": 6 },
-      { "buildingId": "palisata", "level": 2, "x": 8, "y": 6 }
+      {
+        "buildingId": "qg",
+        "level": 2,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "maestro_specialita",
+        "level": 1,
+        "x": 4,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 6,
+        "y": 3
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 1,
+        "x": 9,
+        "y": 5
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 1,
+        "x": 3,
+        "y": 8
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 2,
+        "x": 4,
+        "y": 5
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 2,
+        "x": 9,
+        "y": 5
+      }
     ],
     "requiredHousing": 28,
     "requiresMission": "campo_specialita"
@@ -139,17 +390,63 @@
     "durationHintMin": 18,
     "description": "La prova che dona al gruppo il suo totem.",
     "mapSize": 15,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 2200, "acqua": 2000, "impegno": 40 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 2200,
+      "acqua": 2000,
+      "impegno": 40
+    },
     "totemReward": "Aquila del Campo",
     "enemyLayout": [
-      { "buildingId": "qg", "level": 2, "x": 7, "y": 7 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 5, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 9, "y": 4 },
-      { "buildingId": "segnalatore", "level": 2, "x": 7, "y": 3 },
-      { "buildingId": "deposito_legna", "level": 3, "x": 3, "y": 9 },
-      { "buildingId": "pozzo", "level": 3, "x": 10, "y": 9 },
-      { "buildingId": "tenda_squadriglia", "level": 2, "x": 10, "y": 6 }
+      {
+        "buildingId": "qg",
+        "level": 2,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 5,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 9,
+        "y": 4
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 2,
+        "x": 7,
+        "y": 3
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 3,
+        "x": 3,
+        "y": 9
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 3,
+        "x": 10,
+        "y": 9
+      },
+      {
+        "buildingId": "tenda_squadriglia",
+        "level": 2,
+        "x": 10,
+        "y": 6
+      }
     ],
     "requiredHousing": 30,
     "requiresMission": "campo_competenza_mission"
@@ -162,15 +459,56 @@
     "durationHintMin": 20,
     "description": "Il Noviziato inizia: cammino, silenzio e domande.",
     "mapSize": 16,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 2500, "acqua": 2400, "impegno": 50 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 2500,
+      "acqua": 2400,
+      "impegno": 50
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 3, "x": 7, "y": 7 },
-      { "buildingId": "rifugio_strada", "level": 1, "x": 4, "y": 5 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 6, "y": 3 },
-      { "buildingId": "segnalatore", "level": 2, "x": 9, "y": 4 },
-      { "buildingId": "deposito_legna", "level": 3, "x": 2, "y": 8 },
-      { "buildingId": "pozzo", "level": 3, "x": 11, "y": 8 }
+      {
+        "buildingId": "qg",
+        "level": 3,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "rifugio_strada",
+        "level": 1,
+        "x": 4,
+        "y": 5
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 6,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 2,
+        "x": 9,
+        "y": 4
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 3,
+        "x": 2,
+        "y": 8
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 3,
+        "x": 11,
+        "y": 8
+      }
     ],
     "requiredHousing": 35,
     "requiresMission": "conquista_totem"
@@ -183,17 +521,62 @@
     "durationHintMin": 22,
     "description": "Primo servizio vero: per gli altri, non per sé.",
     "mapSize": 16,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 2800, "acqua": 2700, "impegno": 70 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 2800,
+      "acqua": 2700,
+      "impegno": 70
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 3, "x": 7, "y": 7 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 5, "y": 3 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 9, "y": 3 },
-      { "buildingId": "segnalatore", "level": 2, "x": 4, "y": 8 },
-      { "buildingId": "campo_competenza", "level": 1, "x": 10, "y": 9 },
-      { "buildingId": "palisata", "level": 2, "x": 6, "y": 6 },
-      { "buildingId": "palisata", "level": 2, "x": 7, "y": 6 },
-      { "buildingId": "palisata", "level": 2, "x": 8, "y": 6 }
+      {
+        "buildingId": "qg",
+        "level": 3,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 5,
+        "y": 3
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 9,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 2,
+        "x": 4,
+        "y": 8
+      },
+      {
+        "buildingId": "campo_competenza",
+        "level": 1,
+        "x": 10,
+        "y": 9
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 2,
+        "x": 4,
+        "y": 5
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 2,
+        "x": 9,
+        "y": 5
+      }
     ],
     "requiredHousing": 40,
     "requiresMission": "prima_strada"
@@ -206,15 +589,56 @@
     "durationHintMin": 30,
     "description": "Cammino interiore sotto le stelle: fatica e punto della strada.",
     "mapSize": 16,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 3500, "acqua": 3300, "impegno": 100 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 3500,
+      "acqua": 3300,
+      "impegno": 100
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 4, "x": 7, "y": 7 },
-      { "buildingId": "rifugio_strada", "level": 2, "x": 3, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 2, "x": 10, "y": 4 },
-      { "buildingId": "segnalatore", "level": 2, "x": 4, "y": 10 },
-      { "buildingId": "comunita_capi_padiglione", "level": 1, "x": 10, "y": 10 }
+      {
+        "buildingId": "qg",
+        "level": 4,
+        "x": 7,
+        "y": 7
+      },
+      {
+        "buildingId": "rifugio_strada",
+        "level": 2,
+        "x": 3,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 2,
+        "x": 10,
+        "y": 4
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 2,
+        "x": 4,
+        "y": 10
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 1,
+        "x": 10,
+        "y": 10
+      }
     ],
     "requiredHousing": 45,
     "requiresMission": "servizio_noviziato"
@@ -227,16 +651,62 @@
     "durationHintMin": 35,
     "description": "Sfida comunitaria: obiettivi alti, responsabilità condivisa.",
     "mapSize": 17,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 4000, "acqua": 3800, "impegno": 130 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 4000,
+      "acqua": 3800,
+      "impegno": 130
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 4, "x": 8, "y": 8 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 5, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 10, "y": 4 },
-      { "buildingId": "segnalatore", "level": 3, "x": 8, "y": 3 },
-      { "buildingId": "deposito_legna", "level": 4, "x": 2, "y": 9 },
-      { "buildingId": "pozzo", "level": 4, "x": 12, "y": 9 },
-      { "buildingId": "campo_competenza", "level": 2, "x": 11, "y": 11 }
+      {
+        "buildingId": "qg",
+        "level": 4,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 5,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 10,
+        "y": 4
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 8,
+        "y": 3
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 4,
+        "x": 2,
+        "y": 9
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 4,
+        "x": 12,
+        "y": 9
+      },
+      {
+        "buildingId": "campo_competenza",
+        "level": 2,
+        "x": 11,
+        "y": 11
+      }
     ],
     "requiredHousing": 50,
     "requiresMission": "hike_notturno"
@@ -249,17 +719,62 @@
     "durationHintMin": 35,
     "description": "Leadership: guidare senza sostituirsi alla squadriglia.",
     "mapSize": 17,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 4200, "acqua": 4000, "impegno": 140 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 4200,
+      "acqua": 4000,
+      "impegno": 140
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 4, "x": 8, "y": 8 },
-      { "buildingId": "tenda_squadriglia", "level": 3, "x": 4, "y": 5 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 7, "y": 3 },
-      { "buildingId": "segnalatore", "level": 3, "x": 11, "y": 5 },
-      { "buildingId": "maestro_specialita", "level": 3, "x": 3, "y": 10 },
-      { "buildingId": "palisata", "level": 3, "x": 7, "y": 7 },
-      { "buildingId": "palisata", "level": 3, "x": 8, "y": 7 },
-      { "buildingId": "palisata", "level": 3, "x": 9, "y": 7 }
+      {
+        "buildingId": "qg",
+        "level": 4,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "tenda_squadriglia",
+        "level": 3,
+        "x": 4,
+        "y": 5
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 7,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 11,
+        "y": 5
+      },
+      {
+        "buildingId": "maestro_specialita",
+        "level": 3,
+        "x": 3,
+        "y": 10
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 3,
+        "x": 5,
+        "y": 5
+      },
+      {
+        "buildingId": "sopraelevata",
+        "level": 3,
+        "x": 10,
+        "y": 5
+      }
     ],
     "requiredHousing": 55,
     "requiresMission": "challenge_clan"
@@ -272,15 +787,56 @@
     "durationHintMin": 40,
     "description": "Chi si prepara alla Partenza cammina insieme.",
     "mapSize": 17,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 4500, "acqua": 4300, "impegno": 160 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 4500,
+      "acqua": 4300,
+      "impegno": 160
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 4, "x": 8, "y": 8 },
-      { "buildingId": "comunita_capi_padiglione", "level": 1, "x": 4, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 10, "y": 3 },
-      { "buildingId": "segnalatore", "level": 3, "x": 12, "y": 8 },
-      { "buildingId": "rifugio_strada", "level": 2, "x": 3, "y": 11 }
+      {
+        "buildingId": "qg",
+        "level": 4,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 1,
+        "x": 4,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 10,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 12,
+        "y": 8
+      },
+      {
+        "buildingId": "rifugio_strada",
+        "level": 2,
+        "x": 3,
+        "y": 11
+      }
     ],
     "requiredHousing": 55,
     "requiresMission": "uscita_capi_squadriglia"
@@ -293,19 +849,80 @@
     "durationHintMin": 50,
     "description": "Boss di era Clan: orientarsi alle scelte di servizio e alla Partenza.",
     "mapSize": 18,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 6000, "acqua": 5800, "impegno": 250 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 6000,
+      "acqua": 5800,
+      "impegno": 250
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 4, "x": 8, "y": 8 },
-      { "buildingId": "comunita_capi_padiglione", "level": 2, "x": 4, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 10, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 5, "y": 10 },
-      { "buildingId": "segnalatore", "level": 3, "x": 11, "y": 10 },
-      { "buildingId": "segnalatore", "level": 3, "x": 8, "y": 4 },
-      { "buildingId": "campo_competenza", "level": 2, "x": 12, "y": 6 },
-      { "buildingId": "deposito_legna", "level": 4, "x": 2, "y": 8 },
-      { "buildingId": "pozzo", "level": 4, "x": 13, "y": 12 }
+      {
+        "buildingId": "qg",
+        "level": 4,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 2,
+        "x": 4,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 10,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 5,
+        "y": 10
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 11,
+        "y": 10
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 8,
+        "y": 4
+      },
+      {
+        "buildingId": "campo_competenza",
+        "level": 2,
+        "x": 12,
+        "y": 6
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 4,
+        "x": 2,
+        "y": 8
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 4,
+        "x": 13,
+        "y": 12
+      }
     ],
     "requiredHousing": 60,
     "requiresMission": "uscita_partenti"
@@ -318,15 +935,56 @@
     "durationHintMin": 55,
     "description": "Inizio del percorso capi: gratuità del servizio educativo.",
     "mapSize": 18,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 7000, "acqua": 6800, "impegno": 300 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 7000,
+      "acqua": 6800,
+      "impegno": 300
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 5, "x": 8, "y": 8 },
-      { "buildingId": "sala_formazione", "level": 1, "x": 4, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 11, "y": 3 },
-      { "buildingId": "segnalatore", "level": 3, "x": 3, "y": 10 },
-      { "buildingId": "comunita_capi_padiglione", "level": 2, "x": 12, "y": 11 }
+      {
+        "buildingId": "qg",
+        "level": 5,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "sala_formazione",
+        "level": 1,
+        "x": 4,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 11,
+        "y": 3
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 3,
+        "y": 10
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 2,
+        "x": 12,
+        "y": 11
+      }
     ],
     "requiredHousing": 70,
     "requiresMission": "ross"
@@ -339,16 +997,62 @@
     "durationHintMin": 60,
     "description": "Metodo di branca, comunità e competenza pedagogica.",
     "mapSize": 18,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 8500, "acqua": 8200, "impegno": 400 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 8500,
+      "acqua": 8200,
+      "impegno": 400
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 5, "x": 8, "y": 8 },
-      { "buildingId": "sala_formazione", "level": 2, "x": 3, "y": 3 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 5, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 11, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 3, "x": 7, "y": 12 },
-      { "buildingId": "segnalatore", "level": 3, "x": 13, "y": 8 },
-      { "buildingId": "maestro_specialita", "level": 4, "x": 12, "y": 12 }
+      {
+        "buildingId": "qg",
+        "level": 5,
+        "x": 8,
+        "y": 8
+      },
+      {
+        "buildingId": "sala_formazione",
+        "level": 2,
+        "x": 3,
+        "y": 3
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 5,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 11,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 3,
+        "x": 7,
+        "y": 12
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 13,
+        "y": 8
+      },
+      {
+        "buildingId": "maestro_specialita",
+        "level": 4,
+        "x": 12,
+        "y": 12
+      }
     ],
     "requiredHousing": 80,
     "requiresMission": "cft"
@@ -361,17 +1065,68 @@
     "durationHintMin": 70,
     "description": "Scelte cristiane, politiche e di servizio maturo.",
     "mapSize": 19,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 10000, "acqua": 9800, "impegno": 550 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 10000,
+      "acqua": 9800,
+      "impegno": 550
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 5, "x": 9, "y": 9 },
-      { "buildingId": "sala_formazione", "level": 3, "x": 4, "y": 4 },
-      { "buildingId": "comunita_capi_padiglione", "level": 3, "x": 12, "y": 4 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 11, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 5, "y": 12 },
-      { "buildingId": "segnalatore", "level": 3, "x": 13, "y": 11 },
-      { "buildingId": "segnalatore", "level": 3, "x": 9, "y": 5 }
+      {
+        "buildingId": "qg",
+        "level": 5,
+        "x": 9,
+        "y": 9
+      },
+      {
+        "buildingId": "sala_formazione",
+        "level": 3,
+        "x": 4,
+        "y": 4
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 3,
+        "x": 12,
+        "y": 4
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 11,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 5,
+        "y": 12
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 13,
+        "y": 11
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 9,
+        "y": 5
+      }
     ],
     "requiredHousing": 90,
     "requiresMission": "cfm"
@@ -384,22 +1139,98 @@
     "durationHintMin": 80,
     "description": "Finale: due anni di cammino condensati in una prova ultima.",
     "mapSize": 20,
-    "stars": { "destroyPct": [50, 75, 100], "qgDestroyed": true },
-    "rewards": { "legna": 15000, "acqua": 15000, "impegno": 800 },
+    "stars": {
+      "destroyPct": [
+        50,
+        75,
+        100
+      ],
+      "qgDestroyed": true
+    },
+    "rewards": {
+      "legna": 15000,
+      "acqua": 15000,
+      "impegno": 800
+    },
     "enemyLayout": [
-      { "buildingId": "qg", "level": 5, "x": 9, "y": 9 },
-      { "buildingId": "sala_formazione", "level": 3, "x": 3, "y": 3 },
-      { "buildingId": "comunita_capi_padiglione", "level": 3, "x": 13, "y": 3 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 6, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 11, "y": 2 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 4, "y": 11 },
-      { "buildingId": "posto_guardia", "level": 4, "x": 13, "y": 11 },
-      { "buildingId": "segnalatore", "level": 3, "x": 9, "y": 4 },
-      { "buildingId": "segnalatore", "level": 3, "x": 2, "y": 8 },
-      { "buildingId": "segnalatore", "level": 3, "x": 15, "y": 8 },
-      { "buildingId": "campo_competenza", "level": 3, "x": 14, "y": 14 },
-      { "buildingId": "deposito_legna", "level": 5, "x": 1, "y": 14 },
-      { "buildingId": "pozzo", "level": 5, "x": 16, "y": 1 }
+      {
+        "buildingId": "qg",
+        "level": 5,
+        "x": 9,
+        "y": 9
+      },
+      {
+        "buildingId": "sala_formazione",
+        "level": 3,
+        "x": 3,
+        "y": 3
+      },
+      {
+        "buildingId": "comunita_capi_padiglione",
+        "level": 3,
+        "x": 13,
+        "y": 3
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 6,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 11,
+        "y": 2
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 4,
+        "y": 11
+      },
+      {
+        "buildingId": "posto_guardia",
+        "level": 4,
+        "x": 13,
+        "y": 11
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 9,
+        "y": 4
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 2,
+        "y": 8
+      },
+      {
+        "buildingId": "segnalatore",
+        "level": 3,
+        "x": 15,
+        "y": 8
+      },
+      {
+        "buildingId": "campo_competenza",
+        "level": 3,
+        "x": 14,
+        "y": 14
+      },
+      {
+        "buildingId": "deposito_legna",
+        "level": 5,
+        "x": 1,
+        "y": 14
+      },
+      {
+        "buildingId": "pozzo",
+        "level": 5,
+        "x": 16,
+        "y": 1
+      }
     ],
     "requiredHousing": 100,
     "requiresMission": "cfa"

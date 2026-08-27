@@ -58,7 +58,7 @@
     "name": "Tenda di Specialità",
     "category": "barracks",
     "maxLevel": 5,
-    "footprint": { "w": 3, "h": 2 },
+    "footprint": { "w": 1, "h": 1 },
     "anchor": { "x": 0.5, "y": 1 },
     "spriteKey": "building_tenda_specialita",
     "color": "#2E7D32",
@@ -88,13 +88,13 @@
     ]
   },
   {
-    "id": "palisata",
-    "name": "Palisata",
+    "id": "sopraelevata",
+    "name": "Sopraelevata",
     "category": "wall",
     "maxLevel": 3,
-    "footprint": { "w": 1, "h": 1 },
+    "footprint": { "w": 2, "h": 2 },
     "anchor": { "x": 0.5, "y": 1 },
-    "spriteKey": "building_palisata",
+    "spriteKey": "building_sopraelevata",
     "color": "#6D4C41",
     "levels": [
       { "level": 1, "hp": 300, "buildCost": { "legna": 50, "acqua": 0, "impegno": 0 }, "buildTimeSec": 5, "unlockEra": "lupetti" },

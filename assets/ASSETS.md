@@ -14,8 +14,9 @@ Examples:
 - `assets/buildings/pozzo_lvl1.png` ✅
 - `assets/buildings/deposito_legna_lvl1.png` ✅ (footprint 2×2)
 - `assets/buildings/tenda_squadriglia_lvl1.png` ✅ (footprint 2×2)
+- `assets/buildings/tenda_specialita_lvl1.png` ✅ (footprint 1×1)
+- `assets/buildings/sopraelevata_lvl1.png` ✅ (footprint 2×2)
 - `assets/tiles/grass_empty.png` (asset on disk; runtime ground uses light Views)
-- `assets/buildings/tenda_specialita_lvl2.png`
 - `assets/troops/falegname.png`
 
 `buildingId` / `troopId` must match `src/content/buildings.json` and `troops.json`.

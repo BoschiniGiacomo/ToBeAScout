@@ -24,6 +24,16 @@ const SPRITES: Record<string, number> = {
   building_tenda_squadriglia_3: require('../../assets/buildings/tenda_squadriglia_lvl1.png'),
   building_tenda_squadriglia_4: require('../../assets/buildings/tenda_squadriglia_lvl1.png'),
   building_tenda_squadriglia_5: require('../../assets/buildings/tenda_squadriglia_lvl1.png'),
+  building_tenda_specialita: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_tenda_specialita_1: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_tenda_specialita_2: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_tenda_specialita_3: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_tenda_specialita_4: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_tenda_specialita_5: require('../../assets/buildings/tenda_specialita_lvl1.png'),
+  building_sopraelevata: require('../../assets/buildings/sopraelevata_lvl1.png'),
+  building_sopraelevata_1: require('../../assets/buildings/sopraelevata_lvl1.png'),
+  building_sopraelevata_2: require('../../assets/buildings/sopraelevata_lvl1.png'),
+  building_sopraelevata_3: require('../../assets/buildings/sopraelevata_lvl1.png'),
 };
 
 export function resolveTileSprite(_id: string = 'tile_grass_empty'): number | null {

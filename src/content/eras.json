@@ -5,7 +5,7 @@
     "order": 1,
     "qgLevelRequired": 1,
     "description": "Branco e Cerchio: gioco, caccia e primi passi nel campo.",
-    "unlocksBuildings": ["qg", "deposito_legna", "pozzo", "tenda_specialita", "tenda_squadriglia", "palisata"],
+    "unlocksBuildings": ["qg", "deposito_legna", "pozzo", "tenda_specialita", "tenda_squadriglia", "sopraelevata"],
     "unlocksTroops": ["maestro_giochi", "campeggiatore"],
     "missionIds": ["caccia_bianconiglio", "grande_urlo"]
   },

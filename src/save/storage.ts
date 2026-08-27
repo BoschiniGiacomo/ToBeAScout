@@ -11,6 +11,10 @@ export async function loadGame(): Promise<GameState> {
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw) as GameState;
     if (!parsed.version) return createInitialState();
+    // Rename legacy building id
+    for (const b of parsed.buildings ?? []) {
+      if (b.buildingId === 'palisata') b.buildingId = 'sopraelevata';
+    }
     return tick(parsed, Date.now());
   } catch {
     return createInitialState();
