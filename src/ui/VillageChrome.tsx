@@ -111,8 +111,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 48,
+    height: 48,
   },
   era: {
     color: '#FFF59D',

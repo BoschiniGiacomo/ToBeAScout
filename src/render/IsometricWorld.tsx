@@ -9,9 +9,9 @@ import {
   RoundedRect,
   useImage,
 } from '@shopify/react-native-skia';
-import {
+import Animated, {
   useSharedValue,
-  useDerivedValue,
+  useAnimatedStyle,
   runOnJS,
 } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
@@ -29,9 +29,9 @@ import {
 import { mapLogMount, mapLogPanBegin, mapLogPanEnd, mapLog } from '../debug/mapPerfLog';
 
 /**
- * Clash-style isometric village:
- * CoC uses a native GPU engine (one scene graph). In RN/Expo we approximate that
- * with a SINGLE Skia Canvas + Group camera transform (UI thread) — not N RN Views.
+ * Camera = RN Animated.View (1 native view, UI-thread pan).
+ * World = static Skia Canvas (redraw only when buildings change).
+ * Clash-like: one GPU surface moved, not N Views / not Skia re-record every frame.
  */
 
 interface Props {
@@ -56,7 +56,6 @@ type DrawItem = {
   w: number;
   h: number;
   color: string;
-  label: string;
   depth: number;
   selected: boolean;
   sprite: number | null;
@@ -76,7 +75,6 @@ function layoutSprite(item: DrawItem) {
 }
 
 const SkiaBuilding = memo(function SkiaBuilding({ item }: { item: DrawItem }) {
-  // useImage accepts require() module id; null → placeholder rect
   const img = useImage(item.sprite ?? undefined);
   const { left, top, bw, bh } = layoutSprite(item);
 
@@ -100,8 +98,95 @@ const SkiaBuilding = memo(function SkiaBuilding({ item }: { item: DrawItem }) {
     );
   }
 
+  return <RoundedRect x={left} y={top} width={bw} height={bh} r={4} color={item.color} />;
+});
+
+/** Memoized static world — only re-renders when draw list / grid / preview change. */
+const WorldCanvas = memo(function WorldCanvas({
+  worldW,
+  worldH,
+  groundLeft,
+  groundTop,
+  groundW,
+  groundH,
+  items,
+  previewCells,
+  placementBuildingId,
+}: {
+  worldW: number;
+  worldH: number;
+  groundLeft: number;
+  groundTop: number;
+  groundW: number;
+  groundH: number;
+  items: DrawItem[];
+  previewCells: {
+    valid: boolean;
+    cells: { x: number; y: number }[];
+    hoverTile: { x: number; y: number };
+    def: ReturnType<typeof getBuildingDef>;
+  } | null;
+  placementBuildingId: string | null;
+}) {
+  useEffect(() => {
+    mapLog('canvas.draw', { items: items.length, preview: previewCells ? 1 : 0 });
+  }, [items, previewCells]);
+
   return (
-    <RoundedRect x={left} y={top} width={bw} height={bh} r={4} color={item.color} />
+    <Canvas style={{ width: worldW, height: worldH }}>
+      <RoundedRect
+        x={groundLeft}
+        y={groundTop}
+        width={groundW}
+        height={groundH}
+        r={10}
+        color="#3F7A3B"
+      />
+      {items.map((item) => (
+        <SkiaBuilding key={item.key} item={item} />
+      ))}
+      {previewCells
+        ? previewCells.cells.map((c) => {
+            const p = gridToScreen(c.x, c.y);
+            return (
+              <Rect
+                key={`p-${c.x}-${c.y}`}
+                x={p.x - TILE_W / 2}
+                y={p.y - TILE_H / 2}
+                width={TILE_W}
+                height={TILE_H}
+                color={
+                  previewCells.valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'
+                }
+              />
+            );
+          })
+        : null}
+      {previewCells && placementBuildingId ? (
+        <Group opacity={previewCells.valid ? 0.9 : 0.45}>
+          <SkiaBuilding
+            item={toDrawItem(
+              'ghost',
+              previewCells.hoverTile.x,
+              previewCells.hoverTile.y,
+              previewCells.def.footprint.w,
+              previewCells.def.footprint.h,
+              placementBuildingId,
+              1,
+              previewCells.def.color,
+              depthKey(
+                previewCells.hoverTile.x,
+                previewCells.hoverTile.y,
+                previewCells.def.footprint.w,
+                previewCells.def.footprint.h,
+                9,
+              ),
+              false,
+            )}
+          />
+        </Group>
+      ) : null}
+    </Canvas>
   );
 });
 
@@ -114,7 +199,6 @@ function toDrawItem(
   buildingId: string,
   level: number,
   color: string,
-  label: string,
   depth: number,
   selected: boolean,
 ): DrawItem {
@@ -126,7 +210,6 @@ function toDrawItem(
     w,
     h,
     color,
-    label,
     depth,
     selected,
     sprite: resolveBuildingSprite(def.spriteKey, level),
@@ -168,21 +251,15 @@ export function IsometricWorld({
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
 
-  const cameraTransform = useDerivedValue(() => [
-    { translateX: offsetX.value },
-    { translateY: offsetY.value },
-    { scale: scale.value },
-  ]);
-
   useEffect(() => {
     mapLogMount({
       mode,
-      w: width,
-      h: height,
+      w: Math.round(width),
+      h: Math.round(height),
       grid: gridSize,
       buildings: state.buildings.length,
       placing: placing ? 1 : 0,
-      renderer: 'skia-canvas',
+      renderer: 'skia-static+rn-camera',
     });
   }, [mode, width, height, gridSize, state.buildings.length, placing]);
 
@@ -228,6 +305,9 @@ export function IsometricWorld({
 
   const onPanEndJS = useCallback(() => {
     mapLogPanEnd();
+    // If we never see this log after pan.end, crash is async/OOM after gesture
+    setTimeout(() => mapLog('pan.alive', { afterMs: 400 }), 400);
+    setTimeout(() => mapLog('pan.alive', { afterMs: 1200 }), 1200);
   }, []);
 
   const cameraPan = useMemo(
@@ -268,14 +348,9 @@ export function IsometricWorld({
 
   const pinch = useMemo(
     () =>
-      Gesture.Pinch()
-        .onBegin(() => {
-          startScale.value = scale.value;
-        })
-        .onUpdate((e) => {
-          scale.value = Math.min(1.35, Math.max(0.75, startScale.value * e.scale));
-        }),
-    [scale, startScale],
+      // Pinch disabled for Expo Go stability (scale×Canvas = OOM). Re-enable in native build.
+      Gesture.Pinch().enabled(false),
+    [],
   );
 
   const tap = useMemo(
@@ -296,6 +371,14 @@ export function IsometricWorld({
     [placing, placePointer, cameraPan, pinch, tap],
   );
 
+  const cameraStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value },
+      { translateY: offsetY.value },
+      { scale: scale.value },
+    ],
+  }));
+
   const sorted = useMemo((): DrawItem[] => {
     if (mode === 'combat' && combat) {
       const items: DrawItem[] = combat.buildings
@@ -311,7 +394,6 @@ export function IsometricWorld({
             b.buildingId,
             b.level,
             def.color,
-            def.name.slice(0, 3),
             depthKey(b.x, b.y, b.w, b.h, 1),
             false,
           );
@@ -325,7 +407,6 @@ export function IsometricWorld({
           w: 1,
           h: 1,
           color: def.color,
-          label: def.name.slice(0, 2),
           depth: depthKey(u.x, u.y, 1, 1, 2),
           selected: false,
           sprite: null,
@@ -346,7 +427,6 @@ export function IsometricWorld({
           b.buildingId,
           b.level,
           def.color,
-          def.name.slice(0, 4),
           depthKey(b.x, b.y, def.footprint.w, def.footprint.h, 1),
           b.instanceId === selectedBuildingId,
         );
@@ -354,12 +434,12 @@ export function IsometricWorld({
       .sort((a, b) => a.depth - b.depth);
   }, [combat, mode, selectedBuildingId, state.buildings]);
 
+  const worldW = gridSize * TILE_W + 80;
+  const worldH = gridSize * TILE_H + 120;
   const groundLeft = gridToScreen(0, gridSize - 1).x - TILE_W;
   const groundRight = gridToScreen(gridSize - 1, 0).x + TILE_W;
   const groundTop = gridToScreen(0, 0).y - TILE_H;
   const groundBottom = gridToScreen(gridSize - 1, gridSize - 1).y + TILE_H * 2;
-  const groundW = Math.max(80, groundRight - groundLeft);
-  const groundH = Math.max(80, groundBottom - groundTop);
 
   const previewCells = useMemo(() => {
     if (!placing || !placementBuildingId || !hoverTile) return null;
@@ -378,59 +458,22 @@ export function IsometricWorld({
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
-          <Canvas style={{ width, height }}>
-            <Group transform={cameraTransform}>
-              <RoundedRect
-                x={groundLeft}
-                y={groundTop}
-                width={groundW}
-                height={groundH}
-                r={10}
-                color="#3F7A3B"
-              />
-              {sorted.map((item) => (
-                <SkiaBuilding key={item.key} item={item} />
-              ))}
-              {previewCells
-                ? previewCells.cells.map((c) => {
-                    const p = gridToScreen(c.x, c.y);
-                    return (
-                      <Rect
-                        key={`p-${c.x}-${c.y}`}
-                        x={p.x - TILE_W / 2}
-                        y={p.y - TILE_H / 2}
-                        width={TILE_W}
-                        height={TILE_H}
-                        color={
-                          previewCells.valid
-                            ? 'rgba(76,175,80,0.5)'
-                            : 'rgba(229,57,53,0.5)'
-                        }
-                      />
-                    );
-                  })
-                : null}
-              {previewCells && placementBuildingId ? (
-                <Group opacity={previewCells.valid ? 0.9 : 0.45}>
-                  <SkiaBuilding
-                    item={toDrawItem(
-                      'ghost',
-                      previewCells.hoverTile.x,
-                      previewCells.hoverTile.y,
-                      previewCells.def.footprint.w,
-                      previewCells.def.footprint.h,
-                      placementBuildingId,
-                      1,
-                      previewCells.def.color,
-                      previewCells.def.name.slice(0, 4),
-                      9000,
-                      false,
-                    )}
-                  />
-                </Group>
-              ) : null}
-            </Group>
-          </Canvas>
+          <Animated.View
+            collapsable={false}
+            style={[{ width: worldW, height: worldH }, cameraStyle]}
+          >
+            <WorldCanvas
+              worldW={worldW}
+              worldH={worldH}
+              groundLeft={groundLeft}
+              groundTop={groundTop}
+              groundW={Math.max(80, groundRight - groundLeft)}
+              groundH={Math.max(80, groundBottom - groundTop)}
+              items={sorted}
+              previewCells={previewCells}
+              placementBuildingId={placementBuildingId ?? null}
+            />
+          </Animated.View>
         </View>
       </GestureDetector>
       {placing ? (
