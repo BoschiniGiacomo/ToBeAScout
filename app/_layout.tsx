@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { GameProvider } from '../src/ui/GameContext';
+import { useImmersiveMode } from '../src/ui/immersive';
 import { installGlobalCrashHandlers } from '../src/debug/installGlobalHandlers';
 import { CrashErrorBoundary, CrashLogOverlay } from '../src/debug/ErrorBoundary';
 import { logCrash } from '../src/debug/crashLog';
@@ -13,6 +14,8 @@ import { logCrash } from '../src/debug/crashLog';
 installGlobalCrashHandlers();
 
 export default function RootLayout() {
+  useImmersiveMode();
+
   useEffect(() => {
     void (async () => {
       try {
