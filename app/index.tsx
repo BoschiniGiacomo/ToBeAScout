@@ -1,25 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../src/ui/GameContext';
 import { IsometricWorld } from '../src/render/IsometricWorld';
-import {
-  BuildPanel,
-  EraStrip,
-  ResourceBar,
-  SelectedBuildingPanel,
-  TrainPanel,
-} from '../src/ui/Hud';
 import { ResourceBarsHud } from '../src/ui/ResourceBarsHud';
+import { ShopSheet } from '../src/ui/ShopSheet';
+import { VillageChrome } from '../src/ui/VillageChrome';
 import { canPlace } from '../src/sim/buildings';
 
 export default function VillageScreen() {
@@ -33,13 +25,10 @@ export default function VillageScreen() {
     setPlacementBuilding,
     selectedBuildingId,
     setSelectedBuildingId,
-    reset,
   } = useGame();
   const { width, height } = useWindowDimensions();
-  const sideW = Math.min(320, Math.max(240, width * 0.34));
-  const mapW = width - sideW;
-  const mapH = height;
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
 
   useEffect(() => {
     if (!placementBuilding) setHoverTile(null);
@@ -62,85 +51,51 @@ export default function VillageScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.row}>
-        <View style={[styles.mapCol, { width: mapW, height: mapH }]}>
-          <IsometricWorld
-            state={state}
-            width={mapW}
-            height={mapH}
-            selectedBuildingId={selectedBuildingId}
-            placementBuildingId={placementBuilding}
-            hoverTile={hoverTile}
-            onSelectBuilding={setSelectedBuildingId}
-            onHoverTile={(gx, gy) => {
-              setHoverTile((prev) =>
-                prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
-              );
-            }}
-            onConfirmPlace={(gx, gy) => {
-              if (!placementBuilding) return;
-              const check = canPlace(state, placementBuilding, gx, gy);
-              if (!check.ok) {
-                // resta in modalità piazzamento, hover rosso già visibile
-                return;
-              }
-              place(placementBuilding, gx, gy);
-              setHoverTile(null);
-            }}
-          />
-          <ResourceBarsHud />
-          {message ? (
-            <View style={styles.toast}>
-              <Text style={styles.toastText}>{message}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={[styles.side, { width: sideW }]}>
-          <ScrollView contentContainerStyle={styles.sideContent}>
-            <ResourceBar />
-            <EraStrip />
-            <SelectedBuildingPanel />
-            <BuildPanel />
-            {placementBuilding ? (
-              <Pressable
-                style={styles.cancelPlace}
-                onPress={() => {
-                  setPlacementBuilding(null);
-                  setHoverTile(null);
-                }}
-              >
-                <Text style={styles.cancelPlaceText}>Annulla piazzamento</Text>
-              </Pressable>
-            ) : null}
-            <TrainPanel />
-            <View style={styles.footer}>
-              <Link href="/missions" asChild>
-                <Pressable style={styles.footerBtn}>
-                  <Text style={styles.footerBtnText}>Missioni</Text>
-                </Pressable>
-              </Link>
-              <Pressable style={[styles.footerBtn, styles.danger]} onPress={() => void reset()}>
-                <Text style={styles.footerBtnText}>Nuova</Text>
-              </Pressable>
-            </View>
-          </ScrollView>
-        </View>
+      <View style={[styles.mapCol, { width, height }]}>
+        <IsometricWorld
+          state={state}
+          width={width}
+          height={height}
+          selectedBuildingId={selectedBuildingId}
+          placementBuildingId={placementBuilding}
+          hoverTile={hoverTile}
+          onSelectBuilding={setSelectedBuildingId}
+          onHoverTile={(gx, gy) => {
+            setHoverTile((prev) =>
+              prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
+            );
+          }}
+          onConfirmPlace={(gx, gy) => {
+            if (!placementBuilding) return;
+            const check = canPlace(state, placementBuilding, gx, gy);
+            if (!check.ok) return;
+            place(placementBuilding, gx, gy);
+            setHoverTile(null);
+          }}
+        />
+        <ResourceBarsHud />
+        <VillageChrome
+          onOpenShop={() => setShopOpen(true)}
+          onCancelPlace={() => {
+            setPlacementBuilding(null);
+            setHoverTile(null);
+          }}
+        />
+        {message ? (
+          <View style={styles.toast}>
+            <Text style={styles.toastText}>{message}</Text>
+          </View>
+        ) : null}
       </View>
+
+      <ShopSheet visible={shopOpen} onClose={() => setShopOpen(false)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1B4332' },
-  row: { flex: 1, flexDirection: 'row' },
-  mapCol: { position: 'relative' },
-  side: {
-    backgroundColor: 'rgba(10,20,12,0.96)',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: '#4CAF50',
-  },
-  sideContent: { paddingBottom: 16 },
+  mapCol: { position: 'relative', flex: 1 },
   loading: {
     flex: 1,
     backgroundColor: '#1B4332',
@@ -157,30 +112,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    zIndex: 20,
+    zIndex: 80,
   },
   toastText: { color: '#FFF' },
-  cancelPlace: {
-    marginHorizontal: 10,
-    marginBottom: 6,
-    backgroundColor: '#5D4037',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelPlaceText: { color: '#FFE0B2', fontWeight: '700' },
-  footer: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 10,
-  },
-  footerBtn: {
-    flex: 1,
-    backgroundColor: '#2E7D32',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  danger: { backgroundColor: '#5D4037' },
-  footerBtnText: { color: '#E8F5E9', fontWeight: '800', fontSize: 13 },
 });
