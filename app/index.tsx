@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  LayoutChangeEvent,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +26,7 @@ export default function VillageScreen() {
     selectedBuildingId,
     setSelectedBuildingId,
   } = useGame();
-  const { width, height } = useWindowDimensions();
+  const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
 
@@ -40,6 +40,13 @@ export default function VillageScreen() {
     return () => clearTimeout(t);
   }, [message, clearMessage]);
 
+  const onMapLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setMapSize((prev) =>
+      prev.width === width && prev.height === height ? prev : { width, height },
+    );
+  };
+
   if (!ready) {
     return (
       <View style={styles.loading}>
@@ -51,28 +58,30 @@ export default function VillageScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-      <View style={[styles.mapCol, { width, height }]}>
-        <IsometricWorld
-          state={state}
-          width={width}
-          height={height}
-          selectedBuildingId={selectedBuildingId}
-          placementBuildingId={placementBuilding}
-          hoverTile={hoverTile}
-          onSelectBuilding={setSelectedBuildingId}
-          onHoverTile={(gx, gy) => {
-            setHoverTile((prev) =>
-              prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
-            );
-          }}
-          onConfirmPlace={(gx, gy) => {
-            if (!placementBuilding) return;
-            const check = canPlace(state, placementBuilding, gx, gy);
-            if (!check.ok) return;
-            place(placementBuilding, gx, gy);
-            setHoverTile(null);
-          }}
-        />
+      <View style={styles.mapCol} onLayout={onMapLayout}>
+        {mapSize.width > 0 && mapSize.height > 0 ? (
+          <IsometricWorld
+            state={state}
+            width={mapSize.width}
+            height={mapSize.height}
+            selectedBuildingId={selectedBuildingId}
+            placementBuildingId={placementBuilding}
+            hoverTile={hoverTile}
+            onSelectBuilding={setSelectedBuildingId}
+            onHoverTile={(gx, gy) => {
+              setHoverTile((prev) =>
+                prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
+              );
+            }}
+            onConfirmPlace={(gx, gy) => {
+              if (!placementBuilding) return;
+              const check = canPlace(state, placementBuilding, gx, gy);
+              if (!check.ok) return;
+              place(placementBuilding, gx, gy);
+              setHoverTile(null);
+            }}
+          />
+        ) : null}
         <ResourceBarsHud />
         <VillageChrome
           onOpenShop={() => setShopOpen(true)}
@@ -95,7 +104,7 @@ export default function VillageScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1B4332' },
-  mapCol: { position: 'relative', flex: 1 },
+  mapCol: { position: 'relative', flex: 1, overflow: 'hidden' },
   loading: {
     flex: 1,
     backgroundColor: '#1B4332',

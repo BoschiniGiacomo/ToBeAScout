@@ -61,7 +61,15 @@ export function ResourceBarsHud() {
   };
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={[
+        styles.wrap,
+        {
+          top: 8,
+          right: 16,
+        },
+      ]}
+    >
       {hint ? (
         <View style={styles.hintBubble}>
           <Text style={styles.hintText}>{hint}</Text>
@@ -114,8 +122,6 @@ export function ResourceBarsHud() {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 8,
-    right: 8,
     zIndex: 50,
     gap: 6,
     alignItems: 'flex-end',
