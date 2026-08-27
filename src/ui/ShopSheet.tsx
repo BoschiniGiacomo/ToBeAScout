@@ -13,15 +13,18 @@ import { useGame } from './GameContext';
 import { BUILDINGS, TROOPS } from '../sim/content';
 import { isBuildingUnlocked } from '../sim/buildings';
 import { armyCampCapacity, armyHousingUsed, isTroopUnlocked } from '../sim/training';
-import { formatResourceAmount, freeBuilderSlots } from '../sim/economy';
+import { formatResourceAmount, freeBuilderSlots, RESOURCE_PACKS } from '../sim/economy';
 import { resolveBuildingSprite } from '../render/assets';
 import type { Resources } from '../sim/types';
 
 const LEGNA_ICON = require('../../assets/ui/resource_legna.png');
 const ACQUA_ICON = require('../../assets/ui/resource_acqua.png');
 const IMPEGNO_ICON = require('../../assets/ui/resource_impegno.png');
+const TAB_EDIFICI = require('../../assets/ui/shop_tab_edifici.png');
+const TAB_TRUPPE = require('../../assets/ui/shop_tab_truppe.png');
+const TAB_RISORSE = require('../../assets/ui/shop_tab_risorse.png');
 
-type ShopTab = 'edifici' | 'truppe';
+type ShopTab = 'edifici' | 'truppe' | 'risorse';
 
 type Props = {
   visible: boolean;
@@ -59,7 +62,7 @@ function CostRow({ cost }: { cost: Resources }) {
 /** Clash-of-Clans style shop modal. */
 export function ShopSheet({ visible, onClose }: Props) {
   const { width, height } = useWindowDimensions();
-  const { state, placementBuilding, setPlacementBuilding, train, setSelectedBuildingId } =
+  const { state, placementBuilding, setPlacementBuilding, train, setSelectedBuildingId, buyPack } =
     useGame();
   const [tab, setTab] = useState<ShopTab>('edifici');
   const builders = freeBuilderSlots(state, Date.now());
@@ -73,7 +76,6 @@ export function ShopSheet({ visible, onClose }: Props) {
   const panelW = Math.min(width * 0.92, 720);
   const panelH = Math.min(height * 0.88, 420);
   const cardW = Math.max(132, Math.min(160, panelW * 0.22));
-  const cardH = Math.max(210, panelH - 130);
 
   const pickBuilding = (id: string) => {
     setSelectedBuildingId(null);
@@ -90,22 +92,25 @@ export function ShopSheet({ visible, onClose }: Props) {
           <View style={styles.tabStrip}>
             <View style={styles.tabsRow}>
               <Pressable
-                style={[styles.tab, tab === 'edifici' && styles.tabActive]}
+                style={[styles.tabImgBtn, tab === 'edifici' && styles.tabImgActive]}
                 onPress={() => setTab('edifici')}
+                accessibilityLabel="Edifici"
               >
-                <Text style={[styles.tabGlyph, tab === 'edifici' && styles.tabGlyphOn]}>E</Text>
-                <Text style={[styles.tabLabel, tab === 'edifici' && styles.tabLabelOn]}>
-                  Edifici
-                </Text>
+                <Image source={TAB_EDIFICI} style={styles.tabImg} resizeMode="contain" />
               </Pressable>
               <Pressable
-                style={[styles.tab, tab === 'truppe' && styles.tabActive]}
+                style={[styles.tabImgBtn, tab === 'truppe' && styles.tabImgActive]}
                 onPress={() => setTab('truppe')}
+                accessibilityLabel="Esploratori"
               >
-                <Text style={[styles.tabGlyph, tab === 'truppe' && styles.tabGlyphOn]}>T</Text>
-                <Text style={[styles.tabLabel, tab === 'truppe' && styles.tabLabelOn]}>
-                  Truppe
-                </Text>
+                <Image source={TAB_TRUPPE} style={styles.tabImg} resizeMode="contain" />
+              </Pressable>
+              <Pressable
+                style={[styles.tabImgBtn, tab === 'risorse' && styles.tabImgActive]}
+                onPress={() => setTab('risorse')}
+                accessibilityLabel="Risorse"
+              >
+                <Image source={TAB_RISORSE} style={styles.tabImg} resizeMode="contain" />
               </Pressable>
             </View>
             <Pressable style={styles.closeBtn} onPress={onClose} accessibilityLabel="Chiudi">
@@ -116,12 +121,17 @@ export function ShopSheet({ visible, onClose }: Props) {
           {/* Content */}
           <View style={styles.body}>
             <Text style={styles.shopTitle}>
-              {tab === 'edifici' ? 'Negozio Edifici' : 'Addestra Truppe'}
+              {tab === 'edifici'
+                ? 'Negozio Edifici'
+                : tab === 'truppe'
+                  ? 'Esploratori'
+                  : 'Negozio Risorse'}
             </Text>
 
             {tab === 'edifici' ? (
               <ScrollView
                 horizontal
+                style={styles.cardsScroll}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.cardsRow}
               >
@@ -132,11 +142,7 @@ export function ShopSheet({ visible, onClose }: Props) {
                   return (
                     <Pressable
                       key={b.id}
-                      style={[
-                        styles.card,
-                        { width: cardW, height: cardH },
-                        active && styles.cardActive,
-                      ]}
+                      style={[styles.card, { width: cardW }, active && styles.cardActive]}
                       onPress={() => pickBuilding(b.id)}
                     >
                       <Text style={styles.cardName} numberOfLines={2}>
@@ -156,9 +162,12 @@ export function ShopSheet({ visible, onClose }: Props) {
                   );
                 })}
               </ScrollView>
-            ) : (
+            ) : null}
+
+            {tab === 'truppe' ? (
               <ScrollView
                 horizontal
+                style={styles.cardsScroll}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.cardsRow}
               >
@@ -168,7 +177,7 @@ export function ShopSheet({ visible, onClose }: Props) {
                   unlockedTroops.map((t) => (
                     <Pressable
                       key={t.id}
-                      style={[styles.card, { width: cardW, height: cardH }]}
+                      style={[styles.card, { width: cardW }]}
                       onPress={() => train(t.id)}
                     >
                       <Text style={styles.cardName} numberOfLines={2}>
@@ -188,7 +197,44 @@ export function ShopSheet({ visible, onClose }: Props) {
                   ))
                 )}
               </ScrollView>
-            )}
+            ) : null}
+
+            {tab === 'risorse' ? (
+              <ScrollView
+                horizontal
+                style={styles.cardsScroll}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsRow}
+              >
+                {RESOURCE_PACKS.map((pack) => {
+                  const canBuy = state.resources.impegno >= pack.costImpegno;
+                  const icon = pack.grant.legna > 0 ? LEGNA_ICON : ACQUA_ICON;
+                  const amount = pack.grant.legna > 0 ? pack.grant.legna : pack.grant.acqua;
+                  return (
+                    <Pressable
+                      key={pack.id}
+                      style={[styles.card, { width: cardW }, !canBuy && styles.cardDisabled]}
+                      onPress={() => buyPack(pack.id)}
+                    >
+                      <Text style={styles.cardName} numberOfLines={2}>
+                        {formatResourceAmount(amount)}{' '}
+                        {pack.grant.legna > 0 ? 'Legna' : 'Acqua'}
+                      </Text>
+                      <View style={styles.cardArt}>
+                        <Image source={icon} style={styles.resourcePackIcon} resizeMode="contain" />
+                        <Text style={styles.packAmount}>{formatResourceAmount(amount)}</Text>
+                      </View>
+                      <View style={styles.cardFooter}>
+                        <View style={styles.costItem}>
+                          <Text style={styles.costNum}>{pack.costImpegno}</Text>
+                          <Image source={IMPEGNO_ICON} style={styles.costIcon} />
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
           </View>
 
           {/* Bottom status */}
@@ -197,7 +243,7 @@ export function ShopSheet({ visible, onClose }: Props) {
               <View style={styles.statusPill}>
                 <Text style={styles.statusText}>Costruttori {builders}</Text>
               </View>
-            ) : (
+            ) : tab === 'truppe' ? (
               <View style={styles.statusPill}>
                 <Text style={styles.statusText}>
                   Esercito {used}/{cap}
@@ -205,6 +251,10 @@ export function ShopSheet({ visible, onClose }: Props) {
                     ? ` · coda ${state.trainingQueue.length}`
                     : ''}
                 </Text>
+              </View>
+            ) : (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>Paga con Impegno</Text>
               </View>
             )}
             <View style={styles.walletRow}>
@@ -286,6 +336,20 @@ const styles = StyleSheet.create({
   tabGlyphOn: { color: '#FFE082' },
   tabLabel: { fontSize: 11, fontWeight: '800', color: '#4E342E', marginTop: 2 },
   tabLabelOn: { color: '#FFF8E1' },
+  tabImgBtn: {
+    marginBottom: 2,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  tabImgActive: {
+    borderColor: '#F9A825',
+    transform: [{ translateY: 2 }],
+  },
+  tabImg: {
+    width: 56,
+    height: 56,
+  },
   closeBtn: {
     width: 36,
     height: 36,
@@ -315,11 +379,15 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 0,
   },
+  cardsScroll: {
+    flex: 1,
+  },
   cardsRow: {
     paddingHorizontal: 14,
     paddingBottom: 8,
     gap: 12,
     alignItems: 'stretch',
+    flexGrow: 1,
   },
   card: {
     backgroundColor: '#5BA3D9',
@@ -327,10 +395,28 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#2E6FA0',
+    flexDirection: 'column',
+    alignSelf: 'stretch',
   },
   cardActive: {
     borderColor: '#FFF59D',
     borderWidth: 3,
+  },
+  cardDisabled: {
+    opacity: 0.55,
+  },
+  resourcePackIcon: {
+    width: 72,
+    height: 72,
+  },
+  packAmount: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 16,
+    marginTop: 4,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   cardName: {
     color: '#FFFFFF',
@@ -339,18 +425,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 6,
     paddingTop: 8,
-    minHeight: 40,
+    paddingBottom: 4,
+    flexShrink: 0,
     textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   cardArt: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
+    overflow: 'hidden',
   },
-  cardSprite: { width: 96, height: 96 },
+  cardSprite: { width: 88, height: 88 },
   cardFallback: {
     width: 64,
     height: 64,
@@ -371,11 +460,16 @@ const styles = StyleSheet.create({
   troopBadgeText: { color: '#FFF', fontWeight: '900', fontSize: 22 },
   troopBadgeSub: { color: '#E3F2FD', fontSize: 10, fontWeight: '700' },
   cardFooter: {
-    backgroundColor: 'rgba(20,20,20,0.72)',
+    flexShrink: 0,
+    minHeight: 44,
+    backgroundColor: 'rgba(20,20,20,0.85)',
     paddingVertical: 8,
     paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.25)',
   },
   trainMeta: { color: '#FFE082', fontSize: 11, fontWeight: '700' },
   costRow: {

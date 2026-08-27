@@ -59,6 +59,63 @@ export function formatResourceAmount(n: number): string {
   return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+/** Shop packs: buy legna/acqua with impegno (gems-style). */
+export type ResourcePackId =
+  | 'legna_s'
+  | 'legna_m'
+  | 'legna_l'
+  | 'acqua_s'
+  | 'acqua_m'
+  | 'acqua_l';
+
+export type ResourcePack = {
+  id: ResourcePackId;
+  name: string;
+  grant: Resources;
+  costImpegno: number;
+};
+
+export const RESOURCE_PACKS: ResourcePack[] = [
+  { id: 'legna_s', name: 'Fascio di Legna', grant: { legna: 500, acqua: 0, impegno: 0 }, costImpegno: 10 },
+  { id: 'legna_m', name: 'Catasta di Legna', grant: { legna: 2000, acqua: 0, impegno: 0 }, costImpegno: 30 },
+  { id: 'legna_l', name: 'Riserva di Legna', grant: { legna: 5000, acqua: 0, impegno: 0 }, costImpegno: 60 },
+  { id: 'acqua_s', name: 'Borraccia', grant: { legna: 0, acqua: 500, impegno: 0 }, costImpegno: 10 },
+  { id: 'acqua_m', name: 'Taniche d\'Acqua', grant: { legna: 0, acqua: 2000, impegno: 0 }, costImpegno: 30 },
+  { id: 'acqua_l', name: 'Cisterna', grant: { legna: 0, acqua: 5000, impegno: 0 }, costImpegno: 60 },
+];
+
+export function buyResourcePack(
+  state: GameState,
+  packId: ResourcePackId,
+): { state: GameState; error?: string } {
+  const pack = RESOURCE_PACKS.find((p) => p.id === packId);
+  if (!pack) return { state, error: 'Pacchetto non trovato' };
+  if (state.resources.impegno < pack.costImpegno) {
+    return { state, error: 'Impegno insufficiente' };
+  }
+
+  const caps = getStorageCaps(state);
+  const roomLegna = Math.max(0, caps.legna - state.resources.legna);
+  const roomAcqua = Math.max(0, caps.acqua - state.resources.acqua);
+  const addLegna = Math.min(pack.grant.legna, roomLegna);
+  const addAcqua = Math.min(pack.grant.acqua, roomAcqua);
+
+  if (addLegna <= 0 && addAcqua <= 0) {
+    return { state, error: 'Depositi pieni' };
+  }
+
+  return {
+    state: {
+      ...state,
+      resources: {
+        legna: state.resources.legna + addLegna,
+        acqua: state.resources.acqua + addAcqua,
+        impegno: state.resources.impegno - pack.costImpegno,
+      },
+    },
+  };
+}
+
 export function createInitialState(now = Date.now()): GameState {
   const make = (buildingId: string, x: number, y: number): PlacedBuilding => {
     const def = getBuildingDef(buildingId);

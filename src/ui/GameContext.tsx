@@ -19,7 +19,7 @@ import {
   deployTroop,
   stepCombat,
 } from '../sim/combat';
-import { createInitialState } from '../sim/economy';
+import { createInitialState, buyResourcePack, type ResourcePackId } from '../sim/economy';
 import { logCrash, safeAction } from '../debug/crashLog';
 
 interface GameContextValue {
@@ -31,6 +31,7 @@ interface GameContextValue {
   upgrade: (instanceId: string) => void;
   collect: (instanceId: string) => void;
   train: (troopId: string) => void;
+  buyPack: (packId: ResourcePackId) => void;
   startMission: (missionId: string) => CombatState | null | undefined;
   combat: CombatState | null;
   deploy: (troopId: string, x: number, y: number) => void;
@@ -174,6 +175,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const buyPack = useCallback(
+    safeAction('buyResourcePack', (packId: ResourcePackId) => {
+      const result = buyResourcePack(tick(stateRef.current), packId);
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+      persist(result.state);
+      setMessage('Risorse acquistate');
+    }),
+    [persist],
+  );
+
   const startMission = useCallback(
     safeAction('startMission', (missionId: string) => {
       const check = canStartMission(stateRef.current, missionId);
@@ -240,6 +254,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       upgrade,
       collect,
       train,
+      buyPack,
       startMission,
       combat,
       deploy,
@@ -260,6 +275,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       upgrade,
       collect,
       train,
+      buyPack,
       startMission,
       combat,
       deploy,
