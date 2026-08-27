@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,7 +9,7 @@ import Animated, {
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
-import { resolveBuildingSprite, resolveTileSprite } from './assets';
+import { resolveBuildingSprite } from './assets';
 import { logCrash } from '../debug/crashLog';
 import {
   TILE_H,
@@ -49,11 +49,7 @@ type DrawItem = {
   sprite: number | null;
 };
 
-const EMPTY_TILE = resolveTileSprite('tile_grass_empty');
-const TILE_SPRITE_W = TILE_W + 2;
-const TILE_SPRITE_H = Math.round(TILE_H * 1.75);
-
-/** Lightweight iso cell highlight for placement preview. */
+/** Placement highlight cell. */
 const IsoCell = memo(function IsoCell({
   x,
   y,
@@ -95,89 +91,82 @@ const IsoCell = memo(function IsoCell({
   );
 });
 
-const GrassTile = memo(function GrassTile({ x, y }: { x: number; y: number }) {
+/**
+ * Empty ground tile WITHOUT Image (Views only).
+ * Hundreds of PNG Image nodes were crashing Expo Go on startup.
+ */
+const LightGrassTile = memo(function LightGrassTile({ x, y }: { x: number; y: number }) {
   const p = gridToScreen(x, y);
-  if (!EMPTY_TILE) {
-    const shade = (x + y) % 2 === 0 ? '#4C8C47' : '#3F7A3B';
-    return (
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: p.x - 8,
-          top: p.y - 4,
-          width: 16,
-          height: 8,
-          borderRadius: 2,
-          backgroundColor: shade,
-          opacity: 0.75,
-        }}
-      />
-    );
-  }
+  const top = (x + y) % 2 === 0 ? '#5DAE45' : '#4F9A3C';
+  const dirt = '#6B4A2E';
+  const dirtDark = '#543820';
   return (
-    <Image
+    <View
       pointerEvents="none"
-      source={EMPTY_TILE}
       style={{
         position: 'absolute',
-        left: p.x - TILE_SPRITE_W / 2,
+        left: p.x - TILE_W / 2,
         top: p.y - TILE_H / 2,
-        width: TILE_SPRITE_W,
-        height: TILE_SPRITE_H,
+        width: TILE_W,
+        height: TILE_H + 10,
       }}
-      resizeMode="contain"
-    />
+    >
+      {/* dirt face */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 2,
+          top: TILE_H / 2,
+          width: TILE_W - 4,
+          height: 10,
+          backgroundColor: dirt,
+          borderBottomLeftRadius: 2,
+          borderBottomRightRadius: 2,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: 4,
+          top: TILE_H / 2 + 7,
+          width: TILE_W - 8,
+          height: 3,
+          backgroundColor: dirtDark,
+          opacity: 0.5,
+        }}
+      />
+      {/* grass diamond */}
+      <View
+        style={{
+          position: 'absolute',
+          left: TILE_W / 2 - TILE_H / 2,
+          top: 0,
+          width: TILE_H,
+          height: TILE_H,
+          backgroundColor: top,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: '#3E7A30',
+          transform: [{ rotate: '45deg' }, { scaleX: TILE_W / TILE_H }],
+        }}
+      />
+    </View>
   );
 });
 
-/**
- * Isolated ground layer: does NOT re-render when you select a building.
- * That was crashing Expo Go (400 Images remounted on every tap).
- */
-const GroundLayer = memo(function GroundLayer({
-  gridSize,
-  cam,
-  viewW,
-  viewH,
-}: {
-  gridSize: number;
-  cam: { ox: number; oy: number; sc: number };
-  viewW: number;
-  viewH: number;
-}) {
+/** Ground never depends on selection → no remount when tapping buildings. */
+const GroundLayer = memo(function GroundLayer({ gridSize }: { gridSize: number }) {
   const tiles = useMemo(() => {
-    const pad = 3;
-    const corners = [
-      eventToGrid(0, 0, cam.ox, cam.oy, cam.sc),
-      eventToGrid(viewW, 0, cam.ox, cam.oy, cam.sc),
-      eventToGrid(0, viewH, cam.ox, cam.oy, cam.sc),
-      eventToGrid(viewW, viewH, cam.ox, cam.oy, cam.sc),
-    ];
-    let minX = Math.min(...corners.map((c) => c.x)) - pad;
-    let maxX = Math.max(...corners.map((c) => c.x)) + pad;
-    let minY = Math.min(...corners.map((c) => c.y)) - pad;
-    let maxY = Math.max(...corners.map((c) => c.y)) + pad;
-    minX = Math.max(0, minX);
-    minY = Math.max(0, minY);
-    maxX = Math.min(gridSize - 1, maxX);
-    maxY = Math.min(gridSize - 1, maxY);
-
     const list: { x: number; y: number }[] = [];
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) list.push({ x, y });
-    }
-    // Hard cap to avoid OOM if camera math goes wild
-    if (list.length > 220) {
-      return list.filter((_, i) => i % Math.ceil(list.length / 200) === 0);
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) list.push({ x, y });
     }
     return list;
-  }, [gridSize, cam.ox, cam.oy, cam.sc, viewW, viewH]);
+  }, [gridSize]);
 
   return (
     <>
       {tiles.map((t) => (
-        <GrassTile key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
+        <LightGrassTile key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
       ))}
     </>
   );
@@ -302,24 +291,10 @@ export function IsometricWorld({
   const placing = mode === 'village' && !!placementBuildingId;
   const offsetX = useSharedValue(width * 0.35);
   const offsetY = useSharedValue(height * 0.2);
-  const scale = useSharedValue(0.9);
+  const scale = useSharedValue(0.85);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const startScale = useSharedValue(1);
-  const [cam, setCam] = useState({ ox: width * 0.35, oy: height * 0.2, sc: 0.9 });
-
-  const syncCam = useCallback((ox: number, oy: number, sc: number) => {
-    setCam((prev) => {
-      if (
-        Math.abs(prev.ox - ox) < 8 &&
-        Math.abs(prev.oy - oy) < 8 &&
-        Math.abs(prev.sc - sc) < 0.03
-      ) {
-        return prev;
-      }
-      return { ox, oy, sc };
-    });
-  }, []);
 
   const reportHover = useCallback(
     (gx: number, gy: number) => {
@@ -370,9 +345,6 @@ export function IsometricWorld({
     .onUpdate((e) => {
       offsetX.value = startX.value + e.translationX;
       offsetY.value = startY.value + e.translationY;
-    })
-    .onEnd(() => {
-      runOnJS(syncCam)(offsetX.value, offsetY.value, scale.value);
     });
 
   const placePointer = Gesture.Pan()
@@ -393,10 +365,7 @@ export function IsometricWorld({
       startScale.value = scale.value;
     })
     .onUpdate((e) => {
-      scale.value = Math.min(2.2, Math.max(0.45, startScale.value * e.scale));
-    })
-    .onEnd(() => {
-      runOnJS(syncCam)(offsetX.value, offsetY.value, scale.value);
+      scale.value = Math.min(2.0, Math.max(0.5, startScale.value * e.scale));
     });
 
   const tap = Gesture.Tap().onEnd((e) => {
@@ -526,7 +495,7 @@ export function IsometricWorld({
       <GestureDetector gesture={composed}>
         <View style={{ width, height }}>
           <Animated.View style={[{ width: worldW, height: worldH }, animatedStyle]}>
-            <GroundLayer gridSize={gridSize} cam={cam} viewW={width} viewH={height} />
+            <GroundLayer gridSize={gridSize} />
             {sorted.map((item) => (
               <BuildingSprite key={item.key} item={item} />
             ))}

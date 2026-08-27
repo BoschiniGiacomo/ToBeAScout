@@ -5,7 +5,7 @@
 export type SpriteKey = string;
 
 const SPRITES: Record<string, number> = {
-  tile_grass_empty: require('../../assets/tiles/grass_empty.png'),
+  // grass_empty.png stays on disk for future atlas — not loaded per-cell (OOM on Expo Go)
   building_pozzo: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_1: require('../../assets/buildings/pozzo_lvl1.png'),
   building_pozzo_2: require('../../assets/buildings/pozzo_lvl1.png'),
@@ -21,7 +21,10 @@ const SPRITES: Record<string, number> = {
 };
 
 export function resolveTileSprite(id: string = 'tile_grass_empty'): number | null {
-  return SPRITES[id] ?? null;
+  // Ground uses lightweight Views (not per-cell Images) to avoid Expo Go OOM.
+  // PNG kept on disk for a future single atlas / Skia batch.
+  void id;
+  return null;
 }
 
 export function resolveBuildingSprite(spriteKey: string, level: number): number | null {
