@@ -1,21 +1,44 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
 import { getStorageCaps, formatResourceAmount } from '../sim/economy';
 import type { ResourceId } from '../sim/types';
 
 const BAR_WIDTH = 148;
 
+const LEGNA_ICON = require('../../assets/ui/resource_legna.png');
+const ACQUA_ICON = require('../../assets/ui/resource_acqua.png');
+const IMPEGNO_ICON = require('../../assets/ui/resource_impegno.png');
+
 const BARS: {
   id: ResourceId;
   name: string;
   fill: string;
   iconBg: string;
-  icon: string;
+  icon?: string;
+  iconSource?: number;
 }[] = [
-  { id: 'legna', name: 'Legna', fill: '#E8B923', iconBg: '#C9A227', icon: 'L' },
-  { id: 'acqua', name: 'Acqua', fill: '#4FC3F7', iconBg: '#0288D1', icon: 'A' },
-  { id: 'impegno', name: 'Impegno', fill: '#AB47BC', iconBg: '#6A1B9A', icon: 'I' },
+  {
+    id: 'legna',
+    name: 'Legna',
+    fill: '#E8B923',
+    iconBg: '#C9A227',
+    iconSource: LEGNA_ICON,
+  },
+  {
+    id: 'acqua',
+    name: 'Acqua',
+    fill: '#4FC3F7',
+    iconBg: '#0288D1',
+    iconSource: ACQUA_ICON,
+  },
+  {
+    id: 'impegno',
+    name: 'Impegno',
+    fill: '#AB47BC',
+    iconBg: '#6A1B9A',
+    iconSource: IMPEGNO_ICON,
+  },
 ];
 
 /** Clash-of-Clans style resource bars (top-right overlay). */
@@ -67,8 +90,19 @@ export function ResourceBarsHud() {
                 {formatResourceAmount(amount)}
               </Text>
             </View>
-            <View style={[styles.icon, { backgroundColor: bar.iconBg, borderColor: bar.fill }]}>
-              <Text style={styles.iconText}>{bar.icon}</Text>
+            <View
+              style={[
+                styles.icon,
+                bar.iconSource
+                  ? styles.iconImageWrap
+                  : { backgroundColor: bar.iconBg, borderColor: bar.fill },
+              ]}
+            >
+              {bar.iconSource ? (
+                <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
+              ) : (
+                <Text style={styles.iconText}>{bar.icon}</Text>
+              )}
             </View>
           </Pressable>
         );
@@ -140,6 +174,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
+  },
+  iconImageWrap: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 0,
+  },
+  iconImage: {
+    width: 34,
+    height: 34,
   },
   iconText: {
     color: '#FFF',
