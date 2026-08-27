@@ -356,14 +356,6 @@ export function IsometricWorld({
     ],
   }));
 
-  const tiles = useMemo(() => {
-    const list: { x: number; y: number }[] = [];
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) list.push({ x, y });
-    }
-    return list;
-  }, [gridSize]);
-
   const preview = useMemo(() => {
     if (!placing || !placementBuildingId || !hoverTile) return null;
     const def = getBuildingDef(placementBuildingId);
@@ -457,15 +449,34 @@ export function IsometricWorld({
 
   const worldW = gridSize * TILE_W + 80;
   const worldH = gridSize * TILE_H + 120;
+  // Iso diamond bounds for the whole grid (screen coords of world origin)
+  const groundOrigin = gridToScreen(0, 0);
+  const groundEnd = gridToScreen(gridSize - 1, gridSize - 1);
+  const groundLeft = gridToScreen(0, gridSize - 1).x - TILE_W;
+  const groundRight = gridToScreen(gridSize - 1, 0).x + TILE_W;
+  const groundTop = groundOrigin.y - TILE_H;
+  const groundBottom = groundEnd.y + TILE_H * 2;
 
   return (
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }}>
           <Animated.View style={[{ width: worldW, height: worldH }, animatedStyle]}>
-            {tiles.map((t) => (
-              <TileDot key={`t-${t.x}-${t.y}`} x={t.x} y={t.y} />
-            ))}
+            {/* One ground plane instead of N×N tile Views (avoids Expo Go OOM on pan) */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: groundLeft,
+                top: groundTop,
+                width: Math.max(80, groundRight - groundLeft),
+                height: Math.max(80, groundBottom - groundTop),
+                backgroundColor: '#3F7A3B',
+                borderRadius: 8,
+                opacity: 0.95,
+                zIndex: 0,
+              }}
+            />
             {sorted.map((item) => (
               <BuildingSprite key={item.key} item={item} />
             ))}

@@ -3,17 +3,18 @@ import { AppState, Platform } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { setStatusBarHidden } from 'expo-status-bar';
 
-/** Hide Android nav buttons + status bar (immersive). No-op on iOS/web. */
+/**
+ * Hide status bar + Android nav bar when possible.
+ * With edge-to-edge (Expo SDK 54+), position/behavior/background APIs are unsupported —
+ * only setVisibilityAsync works.
+ */
 export async function enterImmersiveMode(): Promise<void> {
   setStatusBarHidden(true, 'none');
   if (Platform.OS !== 'android') return;
   try {
-    await NavigationBar.setPositionAsync('absolute');
     await NavigationBar.setVisibilityAsync('hidden');
-    await NavigationBar.setBehaviorAsync('overlay-swipe');
-    await NavigationBar.setBackgroundColorAsync('#00000000');
   } catch {
-    // Some devices / gesture nav / edge-to-edge reject parts of the API
+    // Gesture nav / Expo Go may ignore this
   }
 }
 
