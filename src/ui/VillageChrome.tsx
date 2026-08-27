@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
 import { getBuildingDef, getEraDef } from '../sim/content';
 import type { PlacedBuildingExt } from '../sim/buildings';
+
+const SHOP_ICON = require('../../assets/ui/shop_button.png');
+const MISSIONS_ICON = require('../../assets/ui/missions_button.png');
 
 type Props = {
   onOpenShop: () => void;
@@ -76,15 +79,22 @@ export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
 
       <View style={styles.bottomBar} pointerEvents="box-none">
         <Link href="/missions" asChild>
-          <Pressable style={[styles.fab, styles.missionsFab]}>
-            <Text style={styles.fabIcon}>M</Text>
-            <Text style={styles.fabLabel}>Missioni</Text>
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Missioni"
+          >
+            <Image source={MISSIONS_ICON} style={styles.hudIcon} resizeMode="contain" />
           </Pressable>
         </Link>
 
-        <Pressable style={[styles.fab, styles.shopFab]} onPress={onOpenShop}>
-          <Text style={styles.fabIcon}>+</Text>
-          <Text style={styles.fabLabel}>Shop</Text>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={onOpenShop}
+          accessibilityRole="button"
+          accessibilityLabel="Shop"
+        >
+          <Image source={SHOP_ICON} style={styles.hudIcon} resizeMode="contain" />
         </Pressable>
       </View>
     </>
@@ -124,37 +134,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     zIndex: 60,
   },
-  fab: {
-    width: 78,
-    height: 78,
-    borderRadius: 18,
+  iconBtn: {
+    width: 86,
+    height: 86,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFF8E1',
     shadowColor: '#000',
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
   },
-  missionsFab: {
-    backgroundColor: '#E65100',
-  },
-  shopFab: {
-    backgroundColor: '#F9A825',
-  },
-  fabIcon: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1A1200',
-    lineHeight: 30,
-    marginBottom: 1,
-  },
-  fabLabel: {
-    color: '#1A1200',
-    fontWeight: '900',
-    fontSize: 11,
+  hudIcon: {
+    width: 86,
+    height: 86,
   },
   cancelWrap: {
     position: 'absolute',
