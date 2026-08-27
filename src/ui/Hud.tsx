@@ -60,13 +60,36 @@ export function BuildPanel() {
 }
 
 export function SelectedBuildingPanel() {
-  const { state, selectedBuildingId, upgrade, collect } = useGame();
+  const { state, selectedBuildingId, upgrade, collect, setSelectedBuildingId } = useGame();
   if (!selectedBuildingId) return null;
   const b = state.buildings.find((x) => x.instanceId === selectedBuildingId) as
     | PlacedBuildingExt
     | undefined;
-  if (!b) return null;
-  const def = getBuildingDef(b.buildingId);
+  if (!b) {
+    return (
+      <View style={styles.panel}>
+        <Text style={styles.hint}>Edificio non trovato</Text>
+        <Pressable style={styles.btn} onPress={() => setSelectedBuildingId(null)}>
+          <Text style={styles.btnText}>Chiudi</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  let def;
+  try {
+    def = getBuildingDef(b.buildingId);
+  } catch {
+    return (
+      <View style={styles.panel}>
+        <Text style={styles.hint}>Errore definizione edificio</Text>
+        <Pressable style={styles.btn} onPress={() => setSelectedBuildingId(null)}>
+          <Text style={styles.btnText}>Chiudi</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   const busy = !!(b.buildEndsAt && b.buildEndsAt > Date.now());
 
   return (
@@ -77,7 +100,7 @@ export function SelectedBuildingPanel() {
       </Text>
       {def.produces ? (
         <Text style={styles.hint}>
-          Magazzino: {Math.floor(b.stored)} {def.produces.resource}
+          Magazzino: {Math.floor(b.stored ?? 0)} {def.produces.resource}
         </Text>
       ) : null}
       <View style={styles.row}>
@@ -91,6 +114,9 @@ export function SelectedBuildingPanel() {
             <Text style={styles.btnText}>Upgrade</Text>
           </Pressable>
         ) : null}
+        <Pressable style={[styles.btn, { backgroundColor: '#5D4037' }]} onPress={() => setSelectedBuildingId(null)}>
+          <Text style={styles.btnText}>Chiudi</Text>
+        </Pressable>
       </View>
     </View>
   );
