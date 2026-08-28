@@ -7,7 +7,7 @@ import {
   Picture,
   Rect,
   RoundedRect,
-  Skia,
+  type SkPicture,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
@@ -204,6 +204,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const viewH = useSharedValue(height);
   const worldWsv = useSharedValue(worldW);
   const worldHsv = useSharedValue(worldH);
+  const buildingsPicRef = useRef<SkPicture | null>(null);
   const centered = useRef(false);
   const mounted = useRef(false);
   const buildingsCountRef = useRef(state.buildings.length);
@@ -219,6 +220,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     worldWsv.value = worldW;
     worldHsv.value = worldH;
   }, [width, height, worldW, worldH, viewW, viewH, worldWsv, worldHsv]);
+
+  useEffect(() => {
+    return () => {
+      buildingsPicRef.current?.dispose?.();
+      buildingsPicRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,6 +325,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     () =>
       Gesture.Pan()
         .minPointers(placing ? 2 : 1)
+        .maxPointers(placing ? 2 : 1)
         .activeOffsetX([-8, 8])
         .activeOffsetY([-8, 8])
         .onBegin(() => {
@@ -357,6 +366,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPinch = useMemo(
     () =>
       Gesture.Pinch()
+        .enabled(!placing)
         .onBegin((e) => {
           focalX.value = e.focalX;
           focalY.value = e.focalY;
@@ -371,9 +381,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         })
         .onEnd(() => {
           savedScale.value = scale.value;
+        })
+        .onFinalize(() => {
           runOnJS(onPinchEndJS)();
         }),
-    [offsetX, offsetY, scale, savedScale, focalX, focalY, onPinchBeginJS, onPinchEndJS],
+    [placing, offsetX, offsetY, scale, savedScale, focalX, focalY, onPinchBeginJS, onPinchEndJS],
   );
 
   const placePointer = useMemo(
@@ -411,12 +423,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     [placing, placePointer, cameraPan, cameraPinch, tap],
   );
 
-  const cameraMatrix = useDerivedValue(() => {
-    const m = Skia.Matrix();
-    m.translate(offsetX.value, offsetY.value);
-    m.scale(scale.value, scale.value);
-    return m;
-  });
+  const cameraTransform = useDerivedValue(() => [
+    { translateX: offsetX.value },
+    { translateY: offsetY.value },
+    { scale: scale.value },
+  ]);
 
   const buildingVisualKey = useMemo(
     () =>
@@ -487,14 +498,17 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       );
   }, [mode, combat]);
 
-  const terrainPicture = useMemo(() => {
-    if (!spritesReady) return null;
-    return getTerrainPicture(worldW, worldH, gridSize);
-  }, [spritesReady, worldW, worldH, gridSize]);
+  const terrainPicture = useMemo(
+    () => getTerrainPicture(worldW, worldH, gridSize),
+    [worldW, worldH, gridSize],
+  );
 
   const buildingsPicture = useMemo(() => {
     if (!spritesReady) return null;
-    return recordBuildingsPicture(worldW, worldH, buildingItems);
+    buildingsPicRef.current?.dispose?.();
+    const pic = recordBuildingsPicture(worldW, worldH, buildingItems);
+    buildingsPicRef.current = pic;
+    return pic;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spritesReady, buildingVisualKey, combatBuildingKey, worldW, worldH]);
 
@@ -539,8 +553,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
           <Canvas style={{ width, height }}>
-            <Group matrix={cameraMatrix}>
-              {terrainPicture ? <Picture picture={terrainPicture} /> : null}
+            <Group transform={cameraTransform}>
+              <Picture picture={terrainPicture} />
               {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
               {combatUnits.length > 0 ? <UnitLayer units={combatUnits} /> : null}
               {previewCells ? (

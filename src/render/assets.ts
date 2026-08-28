@@ -4,8 +4,6 @@
  */
 export type SpriteKey = string;
 
-export const GRASS_TILE = require('../../assets/tiles/grass_empty.png');
-
 const SPRITES: Record<string, number> = {
   building_qg: require('../../assets/buildings/qg_lvl1.png'),
   building_qg_1: require('../../assets/buildings/qg_lvl1.png'),
@@ -48,7 +46,7 @@ const SPRITES: Record<string, number> = {
 };
 
 export function resolveTileSprite(_id: string = 'tile_grass_empty'): number | null {
-  return GRASS_TILE;
+  return null;
 }
 
 export function resolveBuildingSprite(spriteKey: string, level: number): number | null {
@@ -65,5 +63,5 @@ export function listRegisteredSprites(): string[] {
 
 /** Unique require() ids for one-time Skia preload (atlas cache). */
 export function listUniqueSpriteSources(): number[] {
-  return [...new Set([GRASS_TILE, ...Object.values(SPRITES)])];
+  return [...new Set(Object.values(SPRITES))];
 }
