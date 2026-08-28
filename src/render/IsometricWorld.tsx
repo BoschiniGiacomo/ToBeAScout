@@ -28,6 +28,7 @@ import {
   worldContentBounds,
 } from '../sim/iso';
 import { mapLog, mapLogMount, mapLogPanBegin, mapLogPanEnd } from '../debug/mapPerfLog';
+import { logCrash } from '../debug/crashLog';
 
 /**
  * CoC-style renderer: cached terrain Picture + buildings Picture, pan = camera matrix only.
@@ -116,12 +117,10 @@ function selectionRing(item: DrawItem) {
   const bw = Math.max(36, (item.w + item.h) * (TILE_W / 2) * 0.9);
   const bh = item.sprite ? Math.max(48, bw * 0.9) : Math.max(24, item.h * TILE_H * 0.85 + 14);
   const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
-  return {
-    left: c.x - bw / 2 - 2,
-    top: southY - bh + TILE_H * 0.15 - 2,
-    bw: bw + 4,
-    bh: bh + 4,
-  };
+  const left = c.x - bw / 2 - 2;
+  const top = southY - bh + TILE_H * 0.15 - 2;
+  if (!Number.isFinite(left) || !Number.isFinite(top) || bw <= 0 || bh <= 0) return null;
+  return { left, top, bw: bw + 4, bh: bh + 4 };
 }
 
 function toDrawItem(
@@ -299,20 +298,25 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   const handleTap = useCallback(
     (gx: number, gy: number) => {
-      if (mode === 'combat') {
+      try {
+        if (mode === 'combat') {
+          onTapTile?.(gx, gy);
+          return;
+        }
+        if (placementBuildingId) {
+          onConfirmPlace?.(gx, gy);
+          return;
+        }
+        const hit = state.buildings.find((b) => {
+          const def = getBuildingDef(b.buildingId);
+          return gx >= b.x && gx < b.x + def.footprint.w && gy >= b.y && gy < b.y + def.footprint.h;
+        });
+        mapLog('tap', { gx, gy, hit: hit?.buildingId ?? 'none' });
+        onSelectBuilding?.(hit?.instanceId ?? null);
         onTapTile?.(gx, gy);
-        return;
+      } catch (e) {
+        logCrash('action', 'map.tap', e, { gx, gy, mode });
       }
-      if (placementBuildingId) {
-        onConfirmPlace?.(gx, gy);
-        return;
-      }
-      const hit = state.buildings.find((b) => {
-        const def = getBuildingDef(b.buildingId);
-        return gx >= b.x && gx < b.x + def.footprint.w && gy >= b.y && gy < b.y + def.footprint.h;
-      });
-      onSelectBuilding?.(hit?.instanceId ?? null);
-      onTapTile?.(gx, gy);
     },
     [mode, onConfirmPlace, onSelectBuilding, onTapTile, placementBuildingId, state.buildings],
   );
@@ -341,8 +345,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       Gesture.Pan()
         .minPointers(placing ? 2 : 1)
         .maxPointers(placing ? 2 : 1)
-        .activeOffsetX([-8, 8])
-        .activeOffsetY([-8, 8])
+        .activeOffsetX([-4, 4])
+        .activeOffsetY([-4, 4])
         .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
@@ -442,21 +446,21 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     [placing, offsetX, offsetY, scale, reportHover],
   );
 
-  const tap = useMemo(
-    () =>
-      Gesture.Tap().onEnd((e) => {
-        const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
-        if (placing) runOnJS(reportHover)(g.x, g.y);
-        runOnJS(handleTap)(g.x, g.y);
-      }),
-    [placing, offsetX, offsetY, scale, reportHover, handleTap],
-  );
+  const tap = useMemo(() => {
+    const g = Gesture.Tap().maxDuration(250).onEnd((e) => {
+      const gxy = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+      if (placing) runOnJS(reportHover)(gxy.x, gxy.y);
+      runOnJS(handleTap)(gxy.x, gxy.y);
+    });
+    if (!placing) g.requireExternalGestureToFail(cameraPan);
+    return g;
+  }, [placing, cameraPan, offsetX, offsetY, scale, reportHover, handleTap]);
 
   const composed = useMemo(
     () =>
       placing
         ? Gesture.Simultaneous(placePointer, cameraPan, tap)
-        : Gesture.Exclusive(cameraPinch, cameraPan, tap),
+        : Gesture.Simultaneous(cameraPinch, cameraPan, tap),
     [placing, placePointer, cameraPan, cameraPinch, tap],
   );
 

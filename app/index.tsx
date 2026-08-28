@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, startTransition } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
@@ -51,6 +51,27 @@ export default function VillageScreen() {
     setMapSize({ width: w, height: h });
   };
 
+  const onSelectBuilding = useCallback((id: string | null) => {
+    startTransition(() => setSelectedBuildingId(id));
+  }, [setSelectedBuildingId]);
+
+  const onHoverTile = useCallback((gx: number, gy: number) => {
+    setHoverTile((prev) =>
+      prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
+    );
+  }, []);
+
+  const onConfirmPlace = useCallback(
+    (gx: number, gy: number) => {
+      if (!placementBuilding) return;
+      const check = canPlace(state, placementBuilding, gx, gy);
+      if (!check.ok) return;
+      place(placementBuilding, gx, gy);
+      setHoverTile(null);
+    },
+    [placementBuilding, place, state],
+  );
+
   if (!ready) {
     return (
       <View style={styles.loading}>
@@ -71,19 +92,9 @@ export default function VillageScreen() {
             selectedBuildingId={selectedBuildingId}
             placementBuildingId={placementBuilding}
             hoverTile={hoverTile}
-            onSelectBuilding={setSelectedBuildingId}
-            onHoverTile={(gx, gy) => {
-              setHoverTile((prev) =>
-                prev && prev.x === gx && prev.y === gy ? prev : { x: gx, y: gy },
-              );
-            }}
-            onConfirmPlace={(gx, gy) => {
-              if (!placementBuilding) return;
-              const check = canPlace(state, placementBuilding, gx, gy);
-              if (!check.ok) return;
-              place(placementBuilding, gx, gy);
-              setHoverTile(null);
-            }}
+            onSelectBuilding={onSelectBuilding}
+            onHoverTile={onHoverTile}
+            onConfirmPlace={onConfirmPlace}
           />
         ) : null}
         <ResourceBarsHud />
