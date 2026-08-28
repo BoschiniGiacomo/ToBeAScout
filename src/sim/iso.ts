@@ -42,6 +42,17 @@ export function tilesOverlap(
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
+/** Southern ground contact point of an isometric footprint (anchor target). */
+export function footprintSouthTipScreen(
+  gx: number,
+  gy: number,
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  const c = gridToScreen(gx + w - 1, gy + h - 1);
+  return { x: c.x, y: c.y + TILE_H / 2 };
+}
+
 /** Screen-space AABB of the isometric grid (includes negative x for west tiles). */
 export function worldContentBounds(gridSize: number) {
   const tl = gridToScreen(0, 0);
@@ -53,5 +64,23 @@ export function worldContentBounds(gridSize: number) {
     maxX: Math.max(tl.x, tr.x, bl.x, br.x) + TILE_W / 2,
     minY: Math.min(tl.y, tr.y, bl.y, br.y) - TILE_H / 2,
     maxY: Math.max(tl.y, tr.y, bl.y, br.y) + TILE_H,
+  };
+}
+
+/** Shift world coords into positive picture space (avoids SkPicture clipping on west tiles). */
+export function worldLayout(gridSize: number) {
+  const bounds = worldContentBounds(gridSize);
+  const pad = 16;
+  const originX = -bounds.minX + pad;
+  const originY = -bounds.minY + pad;
+  return {
+    originX,
+    originY,
+    worldW: bounds.maxX - bounds.minX + pad * 2,
+    worldH: bounds.maxY - bounds.minY + pad * 2,
+    minX: bounds.minX + originX,
+    maxX: bounds.maxX + originX,
+    minY: bounds.minY + originY,
+    maxY: bounds.maxY + originY,
   };
 }

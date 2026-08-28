@@ -7,15 +7,14 @@ import {
   Picture,
   Rect,
   RoundedRect,
-  type SkPicture,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
 import { resolveBuildingSprite } from './assets';
-import { recordBuildingsPicture } from './buildingsPicture';
-import { worldDimensions } from './buildWorldPicture';
+import { getBuildingsPicture, clearBuildingsPictureCache } from './buildingsPicture';
+import { worldLayout } from './buildWorldPicture';
 import { preloadAllSprites } from './spriteCache';
 import { getTerrainPicture } from './terrainPicture';
 import {
@@ -25,7 +24,6 @@ import {
   footprintCenterScreen,
   gridToScreen,
   screenToGrid,
-  worldContentBounds,
 } from '../sim/iso';
 import { mapLog, mapLogMount, mapLogPanBegin, mapLogPanEnd } from '../debug/mapPerfLog';
 import { logCrash } from '../debug/crashLog';
@@ -56,6 +54,8 @@ type DrawItem = {
   h: number;
   color: string;
   sprite: number | null;
+  anchorX: number;
+  anchorY: number;
 };
 
 const PAN_MARGIN = 48;
@@ -88,9 +88,13 @@ function clampPan(
 const PreviewOverlay = memo(function PreviewOverlay({
   cells,
   valid,
+  originX,
+  originY,
 }: {
   cells: { x: number; y: number }[];
   valid: boolean;
+  originX: number;
+  originY: number;
 }) {
   return (
     <>
@@ -99,8 +103,8 @@ const PreviewOverlay = memo(function PreviewOverlay({
         return (
           <Rect
             key={`p-${c.x}-${c.y}`}
-            x={p.x - TILE_W / 2}
-            y={p.y - TILE_H / 2}
+            x={p.x + originX - TILE_W / 2}
+            y={p.y + originY - TILE_H / 2}
             width={TILE_W}
             height={TILE_H}
             color={valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
@@ -130,6 +134,8 @@ function toDrawItem(
     h,
     color,
     sprite: resolveBuildingSprite(def.spriteKey, level),
+    anchorX: def.anchor.x,
+    anchorY: def.anchor.y,
   };
 }
 
@@ -139,12 +145,22 @@ function eventToGrid(
   offsetX: number,
   offsetY: number,
   scale: number,
+  originX: number,
+  originY: number,
 ) {
   const s = scale > 0.01 ? scale : 1;
-  return screenToGrid(ex / s - offsetX, ey / s - offsetY);
+  return screenToGrid(ex / s - offsetX - originX, ey / s - offsetY - originY);
 }
 
-const UnitLayer = memo(function UnitLayer({ units }: { units: DrawItem[] }) {
+const UnitLayer = memo(function UnitLayer({
+  units,
+  originX,
+  originY,
+}: {
+  units: DrawItem[];
+  originX: number;
+  originY: number;
+}) {
   return (
     <>
       {units.map((item) => {
@@ -153,8 +169,8 @@ const UnitLayer = memo(function UnitLayer({ units }: { units: DrawItem[] }) {
         return (
           <RoundedRect
             key={item.key}
-            x={c.x - size / 2}
-            y={c.y - size / 2}
+            x={c.x + originX - size / 2}
+            y={c.y + originY - size / 2}
             width={size}
             height={size}
             r={3}
@@ -181,8 +197,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 }: Props & { width: number; height: number }) {
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
-  const { worldW, worldH } = worldDimensions(gridSize);
-  const bounds = useMemo(() => worldContentBounds(gridSize), [gridSize]);
+  const layout = useMemo(() => worldLayout(gridSize), [gridSize]);
+  const { worldW, worldH, originX, originY, minX, maxX, minY, maxY } = layout;
 
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
@@ -194,11 +210,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const startY = useSharedValue(0);
   const viewW = useSharedValue(width);
   const viewH = useSharedValue(height);
-  const boundsMinX = useSharedValue(bounds.minX);
-  const boundsMaxX = useSharedValue(bounds.maxX);
-  const boundsMinY = useSharedValue(bounds.minY);
-  const boundsMaxY = useSharedValue(bounds.maxY);
-  const buildingsPicRef = useRef<SkPicture | null>(null);
+  const boundsMinX = useSharedValue(minX);
+  const boundsMaxX = useSharedValue(maxX);
+  const boundsMinY = useSharedValue(minY);
+  const boundsMaxY = useSharedValue(maxY);
+  const worldOriginX = useSharedValue(originX);
+  const worldOriginY = useSharedValue(originY);
   const centered = useRef(false);
   const mounted = useRef(false);
   const buildingsCountRef = useRef(state.buildings.length);
@@ -211,16 +228,34 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   useEffect(() => {
     viewW.value = width;
     viewH.value = height;
-    boundsMinX.value = bounds.minX;
-    boundsMaxX.value = bounds.maxX;
-    boundsMinY.value = bounds.minY;
-    boundsMaxY.value = bounds.maxY;
-  }, [width, height, bounds, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY]);
+    boundsMinX.value = minX;
+    boundsMaxX.value = maxX;
+    boundsMinY.value = minY;
+    boundsMaxY.value = maxY;
+    worldOriginX.value = originX;
+    worldOriginY.value = originY;
+  }, [
+    width,
+    height,
+    minX,
+    maxX,
+    minY,
+    maxY,
+    originX,
+    originY,
+    viewW,
+    viewH,
+    boundsMinX,
+    boundsMaxX,
+    boundsMinY,
+    boundsMaxY,
+    worldOriginX,
+    worldOriginY,
+  ]);
 
   useEffect(() => {
     return () => {
-      buildingsPicRef.current?.dispose?.();
-      buildingsPicRef.current = null;
+      clearBuildingsPictureCache();
     };
   }, []);
 
@@ -238,15 +273,15 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     if (width <= 0 || height <= 0 || centered.current) return;
     const center = gridToScreen(gridSize / 2, gridSize / 2);
     const next = clampPan(
-      width / 2 / scale.value - center.x,
-      height / 2 / scale.value - center.y,
+      width / 2 / scale.value - (center.x + originX),
+      height / 2 / scale.value - (center.y + originY),
       width,
       height,
       scale.value,
-      bounds.minX,
-      bounds.maxX,
-      bounds.minY,
-      bounds.maxY,
+      minX,
+      maxX,
+      minY,
+      maxY,
     );
     offsetX.value = next.x;
     offsetY.value = next.y;
@@ -272,7 +307,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     placing,
     worldW,
     worldH,
-    bounds,
+    originX,
+    originY,
+    minX,
+    maxX,
+    minY,
+    maxY,
     offsetX,
     offsetY,
     scale,
@@ -423,23 +463,47 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .minPointers(1)
         .maxPointers(1)
         .onBegin((e) => {
-          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          const g = eventToGrid(
+            e.x,
+            e.y,
+            offsetX.value,
+            offsetY.value,
+            scale.value,
+            worldOriginX.value,
+            worldOriginY.value,
+          );
           runOnJS(reportHover)(g.x, g.y);
         })
         .onUpdate((e) => {
-          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          const g = eventToGrid(
+            e.x,
+            e.y,
+            offsetX.value,
+            offsetY.value,
+            scale.value,
+            worldOriginX.value,
+            worldOriginY.value,
+          );
           runOnJS(reportHover)(g.x, g.y);
         }),
-    [placing, offsetX, offsetY, scale, reportHover],
+    [placing, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover],
   );
 
   const tap = useMemo(() => {
     return Gesture.Tap().maxDuration(250).onEnd((e) => {
-      const gxy = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+      const gxy = eventToGrid(
+        e.x,
+        e.y,
+        offsetX.value,
+        offsetY.value,
+        scale.value,
+        worldOriginX.value,
+        worldOriginY.value,
+      );
       if (placing) runOnJS(reportHover)(gxy.x, gxy.y);
       runOnJS(handleTap)(gxy.x, gxy.y);
     });
-  }, [placing, offsetX, offsetY, scale, reportHover, handleTap]);
+  }, [placing, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover, handleTap]);
 
   const composed = useMemo(
     () =>
@@ -457,7 +521,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   const buildingVisualKey = useMemo(
     () =>
-      (state.buildings as PlacedBuilding[])
+      [...(state.buildings as PlacedBuilding[])]
+        .sort((a, b) => a.instanceId.localeCompare(b.instanceId))
         .map(
           (b) =>
             `${b.instanceId}:${b.buildingId}:${b.level}:${b.x}:${b.y}:${b.buildEndsAt ?? 0}`,
@@ -517,6 +582,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           h: 1,
           color: def.color,
           sprite: null,
+          anchorX: 0.5,
+          anchorY: 1,
         };
       })
       .sort(
@@ -531,12 +598,16 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   const buildingsPicture = useMemo(() => {
     if (!spritesReady) return null;
-    buildingsPicRef.current?.dispose?.();
-    const pic = recordBuildingsPicture(worldW, worldH, buildingItems);
-    buildingsPicRef.current = pic;
-    return pic;
+    return getBuildingsPicture(
+      buildingVisualKey + combatBuildingKey,
+      worldW,
+      worldH,
+      originX,
+      originY,
+      buildingItems,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spritesReady, buildingVisualKey, combatBuildingKey, worldW, worldH]);
+  }, [spritesReady, buildingVisualKey, combatBuildingKey, worldW, worldH, originX, originY]);
 
   const previewCells = useMemo(() => {
     if (!placing || !placementBuildingId || !hoverTile) return null;
@@ -561,9 +632,16 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             <Group transform={cameraTransform}>
               <Picture picture={terrainPicture} />
               {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
-              {combatUnits.length > 0 ? <UnitLayer units={combatUnits} /> : null}
+              {combatUnits.length > 0 ? (
+                <UnitLayer units={combatUnits} originX={originX} originY={originY} />
+              ) : null}
               {previewCells ? (
-                <PreviewOverlay cells={previewCells.cells} valid={previewCells.valid} />
+                <PreviewOverlay
+                  cells={previewCells.cells}
+                  valid={previewCells.valid}
+                  originX={originX}
+                  originY={originY}
+                />
               ) : null}
             </Group>
           </Canvas>

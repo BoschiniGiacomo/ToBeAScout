@@ -1,8 +1,9 @@
-import { TILE_W, TILE_H } from '../sim/iso';
+import { worldLayout } from '../sim/iso';
 
+/** @deprecated use worldLayout */
 export function worldDimensions(gridSize: number) {
-  return {
-    worldW: gridSize * TILE_W + 80,
-    worldH: gridSize * TILE_H + 120,
-  };
+  const layout = worldLayout(gridSize);
+  return { worldW: layout.worldW, worldH: layout.worldH };
 }
+
+export { worldLayout };

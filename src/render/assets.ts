@@ -44,6 +44,8 @@ const SPRITES: Record<string, number> = {
   troop_campeggiatore_1: require('../../assets/troops/campeggiatore_lvl1.png'),
   troop_cuoco: require('../../assets/troops/cuoco_lvl1.png'),
   troop_cuoco_1: require('../../assets/troops/cuoco_lvl1.png'),
+  troop_infermiere: require('../../assets/troops/infermiere_lvl1.png'),
+  troop_infermiere_1: require('../../assets/troops/infermiere_lvl1.png'),
   troop_falegname: require('../../assets/troops/falegname_lvl1.png'),
   troop_falegname_1: require('../../assets/troops/falegname_lvl1.png'),
   troop_falegname_2: require('../../assets/troops/falegname_lvl2.png'),

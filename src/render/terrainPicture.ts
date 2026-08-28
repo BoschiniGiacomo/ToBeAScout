@@ -1,5 +1,5 @@
 import { Skia, type SkPicture } from '@shopify/react-native-skia';
-import { TILE_H, TILE_W, gridToScreen } from '../sim/iso';
+import { TILE_H, TILE_W, gridToScreen, worldLayout } from '../sim/iso';
 
 const terrainCache = new Map<number, SkPicture>();
 
@@ -21,8 +21,10 @@ export function getTerrainPicture(
   const cached = terrainCache.get(gridSize);
   if (cached) return cached;
 
+  const { originX, originY } = worldLayout(gridSize);
   const recorder = Skia.PictureRecorder();
   const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, worldW, worldH));
+  canvas.translate(originX, originY);
   const even = Skia.Path.Make();
   const odd = Skia.Path.Make();
   const fill = Skia.Paint();
