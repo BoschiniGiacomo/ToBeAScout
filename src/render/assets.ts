@@ -61,3 +61,8 @@ export function resolveTroopSprite(spriteKey: string, level = 1): number | null 
 export function listRegisteredSprites(): string[] {
   return Object.keys(SPRITES);
 }
+
+/** Unique require() ids for one-time Skia preload (atlas cache). */
+export function listUniqueSpriteSources(): number[] {
+  return [...new Set(Object.values(SPRITES))];
+}

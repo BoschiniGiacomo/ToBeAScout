@@ -1,15 +1,22 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import {
+  Canvas,
+  Group,
+  Image as SkiaImage,
+  Path,
+  Rect,
+  RoundedRect,
+  Skia,
+} from '@shopify/react-native-skia';
+import type { SkImage } from '@shopify/react-native-skia';
+import { useDerivedValue, useSharedValue, runOnJS } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
 import { resolveBuildingSprite } from './assets';
+import { useSpriteImageMap } from './spriteImages';
 import {
   TILE_H,
   TILE_W,
@@ -21,22 +28,22 @@ import {
 import { mapLogMount, mapLogPanBegin, mapLogPanEnd, mapLog } from '../debug/mapPerfLog';
 
 /**
- * RN-native renderer (no Skia): static world layer + GPU-moved Animated.View.
- * Avoids Skia useImage memory leaks that crash Expo Go after a few pans.
+ * CoC-style map: viewport Skia canvas, camera matrix on UI thread,
+ * isometric tile paths (no textures), sprites loaded once via atlas hook.
  */
 
 interface Props {
   state: GameState;
-  width: number;
-  height: number;
-  mode?: 'village' | 'combat';
-  combat?: CombatState | null;
+  width?: number;
+  height?: number;
   selectedBuildingId?: string | null;
   placementBuildingId?: string | null;
   hoverTile?: { x: number; y: number } | null;
+  mode?: 'village' | 'combat';
+  combat?: CombatState | null;
   onHoverTile?: (gx: number, gy: number) => void;
   onConfirmPlace?: (gx: number, gy: number) => void;
-  onTapTile?: (gx: number, gy: number) => void;
+  onTapTile?: (gx: number, y: number) => void;
   onSelectBuilding?: (instanceId: string | null) => void;
 }
 
@@ -52,55 +59,52 @@ type DrawItem = {
   sprite: number | null;
 };
 
-const TILE_DIAMOND = Math.round(TILE_W * 0.52);
+function addTileDiamond(path: ReturnType<typeof Skia.Path.Make>, gx: number, gy: number) {
+  const c = gridToScreen(gx, gy);
+  path.moveTo(c.x, c.y - TILE_H / 2);
+  path.lineTo(c.x + TILE_W / 2, c.y);
+  path.lineTo(c.x, c.y + TILE_H / 2);
+  path.lineTo(c.x - TILE_W / 2, c.y);
+  path.close();
+}
+
+function buildGroundPaths(gridSize: number) {
+  const even = Skia.Path.Make();
+  const odd = Skia.Path.Make();
+  const edge = Skia.Path.Make();
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      addTileDiamond((gx + gy) % 2 === 0 ? even : odd, gx, gy);
+    }
+  }
+  for (let i = 0; i < gridSize; i++) {
+    addTileDiamond(edge, i, 0);
+    addTileDiamond(edge, 0, i);
+    addTileDiamond(edge, gridSize - 1, i);
+    addTileDiamond(edge, i, gridSize - 1);
+  }
+  return { evenPath: even, oddPath: odd, edgePath: edge };
+}
+
+const GROUND_CACHE = new Map<number, ReturnType<typeof buildGroundPaths>>();
+
+function getGroundPaths(gridSize: number) {
+  let cached = GROUND_CACHE.get(gridSize);
+  if (!cached) {
+    cached = buildGroundPaths(gridSize);
+    GROUND_CACHE.set(gridSize, cached);
+  }
+  return cached;
+}
 
 const GroundGrid = memo(function GroundGrid({ gridSize }: { gridSize: number }) {
-  const bounds = useMemo(() => {
-    const tl = gridToScreen(0, 0);
-    const br = gridToScreen(gridSize - 1, gridSize - 1);
-    const bl = gridToScreen(0, gridSize - 1);
-    const tr = gridToScreen(gridSize - 1, 0);
-    const minX = Math.min(tl.x, br.x, bl.x, tr.x) - TILE_W;
-    const maxX = Math.max(tl.x, br.x, bl.x, tr.x) + TILE_W;
-    const minY = Math.min(tl.y, br.y, bl.y, tr.y) - TILE_H;
-    const maxY = Math.max(tl.y, br.y, bl.y, tr.y) + TILE_H * 1.5;
-    return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
-  }, [gridSize]);
-
-  const markers = useMemo(() => {
-    const list: { key: string; cx: number; cy: number; color: string }[] = [];
-    const step = 2;
-    for (let gy = 0; gy < gridSize; gy += step) {
-      for (let gx = 0; gx < gridSize; gx += step) {
-        const c = gridToScreen(gx, gy);
-        list.push({
-          key: `${gx}-${gy}`,
-          cx: c.x - bounds.left,
-          cy: c.y - bounds.top,
-          color: (gx + gy) % 4 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-        });
-      }
-    }
-    return list;
-  }, [gridSize, bounds.left, bounds.top]);
-
+  const { evenPath, oddPath, edgePath } = getGroundPaths(gridSize);
   return (
-    <View pointerEvents="none" style={[styles.ground, bounds]}>
-      {markers.map((m) => (
-        <View
-          key={m.key}
-          style={{
-            position: 'absolute',
-            left: m.cx - TILE_DIAMOND / 2,
-            top: m.cy - TILE_DIAMOND / 2,
-            width: TILE_DIAMOND,
-            height: TILE_DIAMOND,
-            backgroundColor: m.color,
-            transform: [{ rotate: '45deg' }],
-          }}
-        />
-      ))}
-    </View>
+    <Group>
+      <Path path={evenPath} color="#4E9B4A" style="fill" />
+      <Path path={oddPath} color="#468C42" style="fill" />
+      <Path path={edgePath} color="#356832" style="stroke" strokeWidth={1.25} />
+    </Group>
   );
 });
 
@@ -117,33 +121,61 @@ function layoutSprite(item: DrawItem) {
   };
 }
 
-const BuildingMarker = memo(function BuildingMarker({ item }: { item: DrawItem }) {
-  const { left, top, bw, bh } = layoutSprite(item);
+const BuildingLayer = memo(function BuildingLayer({
+  items,
+  sprites,
+}: {
+  items: DrawItem[];
+  sprites: ReadonlyMap<number, SkImage | null>;
+}) {
   return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.building,
-        { left, top, width: bw, height: bh },
-        item.selected && styles.buildingSelected,
-      ]}
-    >
-      {item.sprite ? (
-        <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
-      ) : (
-        <View style={[styles.buildingFallback, { backgroundColor: item.color }]} />
-      )}
-    </View>
+    <>
+      {items.map((item) => {
+        const { left, top, bw, bh } = layoutSprite(item);
+        const img = item.sprite ? sprites.get(item.sprite) : null;
+        if (img) {
+          return (
+            <Group key={item.key}>
+              {item.selected ? (
+                <RoundedRect
+                  x={left - 2}
+                  y={top - 2}
+                  width={bw + 4}
+                  height={bh + 4}
+                  r={4}
+                  color="rgba(255,245,157,0.85)"
+                  style="stroke"
+                  strokeWidth={2}
+                />
+              ) : null}
+              <SkiaImage image={img} x={left} y={top} width={bw} height={bh} fit="contain" />
+            </Group>
+          );
+        }
+        return (
+          <RoundedRect key={item.key} x={left} y={top} width={bw} height={bh} r={4} color={item.color} />
+        );
+      })}
+    </>
   );
 });
 
-const WorldContent = memo(function WorldContent({
+const WorldCanvas = memo(function WorldCanvas({
+  viewportW,
+  viewportH,
   gridSize,
+  cameraX,
+  cameraY,
   items,
   previewCells,
   placementBuildingId,
+  sprites,
 }: {
+  viewportW: number;
+  viewportH: number;
   gridSize: number;
+  cameraX: { value: number };
+  cameraY: { value: number };
   items: DrawItem[];
   previewCells: {
     valid: boolean;
@@ -152,66 +184,68 @@ const WorldContent = memo(function WorldContent({
     def: ReturnType<typeof getBuildingDef>;
   } | null;
   placementBuildingId: string | null;
+  sprites: ReadonlyMap<number, SkImage | null>;
 }) {
+  const cameraTransform = useDerivedValue(() => [
+    { translateX: cameraX.value },
+    { translateY: cameraY.value },
+  ]);
+
+  const drawKey = useRef(0);
   useEffect(() => {
-    mapLog('world.draw', { items: items.length, preview: previewCells ? 1 : 0 });
-  }, [items.length, previewCells]);
+    drawKey.current += 1;
+    mapLog('canvas.draw', { n: drawKey.current, items: items.length, vpW: viewportW });
+  }, [items.length, previewCells, viewportW]);
+
+  const ghostItem =
+    previewCells && placementBuildingId
+      ? toDrawItem(
+          'ghost',
+          previewCells.hoverTile.x,
+          previewCells.hoverTile.y,
+          previewCells.def.footprint.w,
+          previewCells.def.footprint.h,
+          placementBuildingId,
+          1,
+          previewCells.def.color,
+          depthKey(
+            previewCells.hoverTile.x,
+            previewCells.hoverTile.y,
+            previewCells.def.footprint.w,
+            previewCells.def.footprint.h,
+            9,
+          ),
+          false,
+        )
+      : null;
 
   return (
-    <>
-      <GroundGrid gridSize={gridSize} />
-      {previewCells
-        ? previewCells.cells.map((c) => {
-            const p = gridToScreen(c.x, c.y);
-            return (
-              <View
-                key={`p-${c.x}-${c.y}`}
-                pointerEvents="none"
-                style={[
-                  styles.previewCell,
-                  {
-                    left: p.x - TILE_W / 2,
-                    top: p.y - TILE_H / 2,
-                    backgroundColor: previewCells.valid
-                      ? 'rgba(76,175,80,0.5)'
-                      : 'rgba(229,57,53,0.5)',
-                  },
-                ]}
-              />
-            );
-          })
-        : null}
-      {items.map((item) => (
-        <BuildingMarker key={item.key} item={item} />
-      ))}
-      {previewCells && placementBuildingId ? (
-        <View
-          pointerEvents="none"
-          style={{ opacity: previewCells.valid ? 0.9 : 0.45 }}
-        >
-          <BuildingMarker
-            item={toDrawItem(
-              'ghost',
-              previewCells.hoverTile.x,
-              previewCells.hoverTile.y,
-              previewCells.def.footprint.w,
-              previewCells.def.footprint.h,
-              placementBuildingId,
-              1,
-              previewCells.def.color,
-              depthKey(
-                previewCells.hoverTile.x,
-                previewCells.hoverTile.y,
-                previewCells.def.footprint.w,
-                previewCells.def.footprint.h,
-                9,
-              ),
-              false,
-            )}
-          />
-        </View>
-      ) : null}
-    </>
+    <Canvas style={{ width: viewportW, height: viewportH }}>
+      <Group transform={cameraTransform}>
+        <GroundGrid gridSize={gridSize} />
+        <BuildingLayer items={items} sprites={sprites} />
+        {previewCells
+          ? previewCells.cells.map((c) => {
+              const p = gridToScreen(c.x, c.y);
+              return (
+                <Rect
+                  key={`p-${c.x}-${c.y}`}
+                  x={p.x - TILE_W / 2}
+                  y={p.y - TILE_H / 2}
+                  width={TILE_W}
+                  height={TILE_H}
+                  color={previewCells.valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
+                />
+              );
+            })
+          : null}
+        {ghostItem ? (
+          <Group opacity={previewCells!.valid ? 0.9 : 0.45}>
+            <BuildingLayer items={[ghostItem]} sprites={sprites} />
+          </Group>
+        ) : null}
+      </Group>
+    </Canvas>
   );
 });
 
@@ -246,21 +280,11 @@ function eventToGrid(
   ey: number,
   offsetX: number,
   offsetY: number,
-  scale: number,
 ): { x: number; y: number } {
-  const localX = (ex - offsetX) / scale;
-  const localY = (ey - offsetY) / scale;
-  return screenToGrid(localX, localY);
+  return screenToGrid(ex - offsetX, ey - offsetY);
 }
 
-function worldSize(gridSize: number) {
-  return {
-    worldW: gridSize * TILE_W + 80,
-    worldH: gridSize * TILE_H + 120,
-  };
-}
-
-export function IsometricWorld({
+function IsometricWorldInner({
   state,
   width,
   height,
@@ -273,45 +297,43 @@ export function IsometricWorld({
   onConfirmPlace,
   onTapTile,
   onSelectBuilding,
-}: Props) {
+}: Props & { width: number; height: number }) {
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
-  const { worldW, worldH } = worldSize(gridSize);
+  const sprites = useSpriteImageMap();
 
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
-  const scale = useSharedValue(1);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
+  const cameraReady = useRef(false);
 
   useEffect(() => {
+    if (width <= 0 || height <= 0) return;
     const center = gridToScreen(gridSize / 2, gridSize / 2);
     offsetX.value = width / 2 - center.x;
     offsetY.value = height / 2 - center.y;
-  }, [width, height, gridSize, offsetX, offsetY]);
-
-  useEffect(() => {
-    mapLogMount({
-      mode,
-      w: Math.round(width),
-      h: Math.round(height),
-      grid: gridSize,
-      buildings: state.buildings.length,
-      placing: placing ? 1 : 0,
-      renderer: 'rn-animated-world',
-    });
-  }, [mode, width, height, gridSize, state.buildings.length, placing]);
+    if (!cameraReady.current) {
+      cameraReady.current = true;
+      mapLogMount({
+        mode,
+        w: Math.round(width),
+        h: Math.round(height),
+        grid: gridSize,
+        buildings: state.buildings.length,
+        placing: placing ? 1 : 0,
+        renderer: 'skia-atlas-camera',
+      });
+    }
+  }, [width, height, gridSize, mode, state.buildings.length, placing, offsetX, offsetY]);
 
   const reportHover = useCallback(
-    (gx: number, gy: number) => {
-      onHoverTile?.(gx, gy);
-    },
+    (gx: number, gy: number) => onHoverTile?.(gx, gy),
     [onHoverTile],
   );
 
   const handleTap = useCallback(
     (gx: number, gy: number) => {
-      mapLog('tap', { gx, gy, placing: placing ? 1 : 0 });
       if (mode === 'combat') {
         onTapTile?.(gx, gy);
         return;
@@ -327,15 +349,7 @@ export function IsometricWorld({
       onSelectBuilding?.(hit?.instanceId ?? null);
       onTapTile?.(gx, gy);
     },
-    [
-      mode,
-      onConfirmPlace,
-      onSelectBuilding,
-      onTapTile,
-      placementBuildingId,
-      placing,
-      state.buildings,
-    ],
+    [mode, onConfirmPlace, onSelectBuilding, onTapTile, placementBuildingId, state.buildings],
   );
 
   const onPanBeginJS = useCallback(() => {
@@ -344,16 +358,14 @@ export function IsometricWorld({
 
   const onPanEndJS = useCallback(() => {
     mapLogPanEnd();
-    setTimeout(() => mapLog('pan.alive', { afterMs: 400 }), 400);
-    setTimeout(() => mapLog('pan.alive', { afterMs: 1200 }), 1200);
   }, []);
 
   const cameraPan = useMemo(
     () =>
       Gesture.Pan()
         .minPointers(placing ? 2 : 1)
-        .activeOffsetX([-6, 6])
-        .activeOffsetY([-6, 6])
+        .activeOffsetX([-4, 4])
+        .activeOffsetY([-4, 4])
         .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
@@ -376,24 +388,24 @@ export function IsometricWorld({
         .minPointers(1)
         .maxPointers(1)
         .onBegin((e) => {
-          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value);
           runOnJS(reportHover)(g.x, g.y);
         })
         .onUpdate((e) => {
-          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+          const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value);
           runOnJS(reportHover)(g.x, g.y);
         }),
-    [placing, offsetX, offsetY, scale, reportHover],
+    [placing, offsetX, offsetY, reportHover],
   );
 
   const tap = useMemo(
     () =>
       Gesture.Tap().onEnd((e) => {
-        const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
+        const g = eventToGrid(e.x, e.y, offsetX.value, offsetY.value);
         if (placing) runOnJS(reportHover)(g.x, g.y);
         runOnJS(handleTap)(g.x, g.y);
       }),
-    [placing, offsetX, offsetY, scale, reportHover, handleTap],
+    [placing, offsetX, offsetY, reportHover, handleTap],
   );
 
   const composed = useMemo(
@@ -403,14 +415,6 @@ export function IsometricWorld({
         : Gesture.Simultaneous(cameraPan, tap),
     [placing, placePointer, cameraPan, tap],
   );
-
-  const cameraStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: offsetX.value },
-      { translateY: offsetY.value },
-      { scale: scale.value },
-    ],
-  }));
 
   const buildingVisualKey = useMemo(
     () =>
@@ -492,27 +496,23 @@ export function IsometricWorld({
     return { valid: check.ok, cells, def, hoverTile };
   }, [placing, placementBuildingId, hoverTile, state]);
 
+  if (width <= 0 || height <= 0) return null;
+
   return (
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
-          <Animated.View
-            collapsable={false}
-            renderToHardwareTextureAndroid
-            needsOffscreenAlphaCompositing={false}
-            style={[
-              styles.world,
-              { width: worldW, height: worldH },
-              cameraStyle,
-            ]}
-          >
-            <WorldContent
-              gridSize={gridSize}
-              items={sorted}
-              previewCells={previewCells}
-              placementBuildingId={placementBuildingId ?? null}
-            />
-          </Animated.View>
+          <WorldCanvas
+            viewportW={width}
+            viewportH={height}
+            gridSize={gridSize}
+            cameraX={offsetX}
+            cameraY={offsetY}
+            items={sorted}
+            previewCells={previewCells}
+            placementBuildingId={placementBuildingId ?? null}
+            sprites={sprites}
+          />
         </View>
       </GestureDetector>
       {placing ? (
@@ -526,42 +526,18 @@ export function IsometricWorld({
   );
 }
 
+export const IsometricWorld = memo(function IsometricWorld(props: Props) {
+  const window = useWindowDimensions();
+  const width = props.width ?? window.width;
+  const height = props.height ?? window.height;
+  return <IsometricWorldInner {...props} width={width} height={height} />;
+});
+
 const styles = StyleSheet.create({
   wrap: {
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
     backgroundColor: '#1A3A28',
-  },
-  world: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  ground: {
-    backgroundColor: '#4A8F47',
-    borderWidth: 2,
-    borderColor: '#356832',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  building: {
-    position: 'absolute',
-  },
-  buildingSelected: {
-    borderWidth: 2,
-    borderColor: '#FFF59D',
-    borderRadius: 6,
-  },
-  buildingFallback: {
-    flex: 1,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  previewCell: {
-    position: 'absolute',
-    width: TILE_W,
-    height: TILE_H,
-    borderRadius: 2,
   },
   placeBanner: {
     position: 'absolute',
