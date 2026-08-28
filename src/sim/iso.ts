@@ -41,3 +41,17 @@ export function tilesOverlap(
 ): boolean {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
+
+/** Screen-space AABB of the isometric grid (includes negative x for west tiles). */
+export function worldContentBounds(gridSize: number) {
+  const tl = gridToScreen(0, 0);
+  const tr = gridToScreen(gridSize - 1, 0);
+  const bl = gridToScreen(0, gridSize - 1);
+  const br = gridToScreen(gridSize - 1, gridSize - 1);
+  return {
+    minX: Math.min(tl.x, tr.x, bl.x, br.x) - TILE_W / 2,
+    maxX: Math.max(tl.x, tr.x, bl.x, br.x) + TILE_W / 2,
+    minY: Math.min(tl.y, tr.y, bl.y, br.y) - TILE_H / 2,
+    maxY: Math.max(tl.y, tr.y, bl.y, br.y) + TILE_H,
+  };
+}

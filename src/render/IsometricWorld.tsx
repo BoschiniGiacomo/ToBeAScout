@@ -25,6 +25,7 @@ import {
   footprintCenterScreen,
   gridToScreen,
   screenToGrid,
+  worldContentBounds,
 } from '../sim/iso';
 import { mapLog, mapLogMount, mapLogPanBegin, mapLogPanEnd } from '../debug/mapPerfLog';
 
@@ -66,18 +67,22 @@ function clampPan(
   oy: number,
   viewW: number,
   viewH: number,
-  worldW: number,
-  worldH: number,
+  scale: number,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
 ) {
   'worklet';
-  const minX = Math.min(PAN_MARGIN, viewW - worldW - PAN_MARGIN);
-  const maxX = PAN_MARGIN;
-  const minY = Math.min(PAN_MARGIN, viewH - worldH - PAN_MARGIN);
-  const maxY = PAN_MARGIN;
-  return {
-    x: Math.max(minX, Math.min(maxX, ox)),
-    y: Math.max(minY, Math.min(maxY, oy)),
-  };
+  const s = scale > 0.01 ? scale : 1;
+  const m = PAN_MARGIN;
+  const loX = (viewW - m) / s - maxX;
+  const hiX = m / s - minX;
+  const loY = (viewH - m) / s - maxY;
+  const hiY = m / s - minY;
+  const cx = loX <= hiX ? Math.max(loX, Math.min(hiX, ox)) : (loX + hiX) / 2;
+  const cy = loY <= hiY ? Math.max(loY, Math.min(hiY, oy)) : (loY + hiY) / 2;
+  return { x: cx, y: cy };
 }
 
 const PreviewOverlay = memo(function PreviewOverlay({
@@ -148,8 +153,8 @@ function eventToGrid(
   offsetY: number,
   scale: number,
 ) {
-  const s = scale > 0 ? scale : 1;
-  return screenToGrid((ex - offsetX) / s, (ey - offsetY) / s);
+  const s = scale > 0.01 ? scale : 1;
+  return screenToGrid(ex / s - offsetX, ey / s - offsetY);
 }
 
 const UnitLayer = memo(function UnitLayer({ units }: { units: DrawItem[] }) {
@@ -191,6 +196,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
   const { worldW, worldH } = worldDimensions(gridSize);
+  const bounds = useMemo(() => worldContentBounds(gridSize), [gridSize]);
 
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
@@ -202,8 +208,10 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const startY = useSharedValue(0);
   const viewW = useSharedValue(width);
   const viewH = useSharedValue(height);
-  const worldWsv = useSharedValue(worldW);
-  const worldHsv = useSharedValue(worldH);
+  const boundsMinX = useSharedValue(bounds.minX);
+  const boundsMaxX = useSharedValue(bounds.maxX);
+  const boundsMinY = useSharedValue(bounds.minY);
+  const boundsMaxY = useSharedValue(bounds.maxY);
   const buildingsPicRef = useRef<SkPicture | null>(null);
   const centered = useRef(false);
   const mounted = useRef(false);
@@ -217,9 +225,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   useEffect(() => {
     viewW.value = width;
     viewH.value = height;
-    worldWsv.value = worldW;
-    worldHsv.value = worldH;
-  }, [width, height, worldW, worldH, viewW, viewH, worldWsv, worldHsv]);
+    boundsMinX.value = bounds.minX;
+    boundsMaxX.value = bounds.maxX;
+    boundsMinY.value = bounds.minY;
+    boundsMaxY.value = bounds.maxY;
+  }, [width, height, bounds, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY]);
 
   useEffect(() => {
     return () => {
@@ -242,12 +252,15 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     if (width <= 0 || height <= 0 || centered.current) return;
     const center = gridToScreen(gridSize / 2, gridSize / 2);
     const next = clampPan(
-      width / 2 - center.x,
-      height / 2 - center.y,
+      width / 2 / scale.value - center.x,
+      height / 2 / scale.value - center.y,
       width,
       height,
-      worldW,
-      worldH,
+      scale.value,
+      bounds.minX,
+      bounds.maxX,
+      bounds.minY,
+      bounds.maxY,
     );
     offsetX.value = next.x;
     offsetY.value = next.y;
@@ -273,8 +286,10 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     placing,
     worldW,
     worldH,
+    bounds,
     offsetX,
     offsetY,
+    scale,
   ]);
 
   const reportHover = useCallback(
@@ -339,8 +354,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             startY.value + e.translationY,
             viewW.value,
             viewH.value,
-            worldWsv.value,
-            worldHsv.value,
+            scale.value,
+            boundsMinX.value,
+            boundsMaxX.value,
+            boundsMinY.value,
+            boundsMaxY.value,
           );
           offsetX.value = next.x;
           offsetY.value = next.y;
@@ -356,8 +374,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       startY,
       viewW,
       viewH,
-      worldWsv,
-      worldHsv,
+      scale,
+      boundsMinX,
+      boundsMaxX,
+      boundsMinY,
+      boundsMaxY,
       onPanBeginJS,
       onPanEndJS,
     ],
@@ -373,11 +394,27 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           runOnJS(onPinchBeginJS)();
         })
         .onUpdate((e) => {
+          const prev = scale.value;
           const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, savedScale.value * e.scale));
-          const ratio = next / scale.value;
-          offsetX.value = focalX.value - (focalX.value - offsetX.value) * ratio;
-          offsetY.value = focalY.value - (focalY.value - offsetY.value) * ratio;
+          if (prev <= 0.01) return;
+          offsetX.value =
+            offsetX.value + focalX.value * (1 / next - 1 / prev);
+          offsetY.value =
+            offsetY.value + focalY.value * (1 / next - 1 / prev);
           scale.value = next;
+          const clamped = clampPan(
+            offsetX.value,
+            offsetY.value,
+            viewW.value,
+            viewH.value,
+            next,
+            boundsMinX.value,
+            boundsMaxX.value,
+            boundsMinY.value,
+            boundsMaxY.value,
+          );
+          offsetX.value = clamped.x;
+          offsetY.value = clamped.y;
         })
         .onEnd(() => {
           savedScale.value = scale.value;
@@ -385,7 +422,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .onFinalize(() => {
           runOnJS(onPinchEndJS)();
         }),
-    [placing, offsetX, offsetY, scale, savedScale, focalX, focalY, onPinchBeginJS, onPinchEndJS],
+    [placing, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
   );
 
   const placePointer = useMemo(
@@ -418,8 +455,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const composed = useMemo(
     () =>
       placing
-        ? Gesture.Simultaneous(placePointer, cameraPan, cameraPinch, tap)
-        : Gesture.Simultaneous(cameraPan, cameraPinch, tap),
+        ? Gesture.Simultaneous(placePointer, cameraPan, tap)
+        : Gesture.Exclusive(cameraPinch, cameraPan, tap),
     [placing, placePointer, cameraPan, cameraPinch, tap],
   );
 

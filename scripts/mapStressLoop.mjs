@@ -23,19 +23,46 @@ function screenToGrid(sx, sy) {
 }
 
 function eventToGrid(ex, ey, offsetX, offsetY, scale) {
-  const s = scale > 0 ? scale : 1;
-  return screenToGrid((ex - offsetX) / s, (ey - offsetY) / s);
+  const s = scale > 0.01 ? scale : 1;
+  return screenToGrid(ex / s - offsetX, ey / s - offsetY);
 }
 
-function applyPinch(offsetX, offsetY, scale, savedScale, focalX, focalY, pinchScale) {
-  const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, savedScale * pinchScale));
-  const ratio = next / scale;
+function worldBounds(gridSize) {
+  const tl = gridToScreen(0, 0);
+  const tr = gridToScreen(gridSize - 1, 0);
+  const bl = gridToScreen(0, gridSize - 1);
+  const br = gridToScreen(gridSize - 1, gridSize - 1);
+  const TILE_W = 64;
+  const TILE_H = 32;
   return {
-    offsetX: focalX - (focalX - offsetX) * ratio,
-    offsetY: focalY - (focalY - offsetY) * ratio,
-    scale: next,
-    savedScale: next,
+    minX: Math.min(tl.x, tr.x, bl.x, br.x) - TILE_W / 2,
+    maxX: Math.max(tl.x, tr.x, bl.x, br.x) + TILE_W / 2,
+    minY: Math.min(tl.y, tr.y, bl.y, br.y) - TILE_H / 2,
+    maxY: Math.max(tl.y, tr.y, bl.y, br.y) + TILE_H,
   };
+}
+
+function clampPan(ox, oy, viewW, viewH, scale, b) {
+  const s = scale > 0.01 ? scale : 1;
+  const m = 48;
+  const loX = (viewW - m) / s - b.maxX;
+  const hiX = m / s - b.minX;
+  const loY = (viewH - m) / s - b.maxY;
+  const hiY = m / s - b.minY;
+  return {
+    x: loX <= hiX ? Math.max(loX, Math.min(hiX, ox)) : (loX + hiX) / 2,
+    y: loY <= hiY ? Math.max(loY, Math.min(hiY, oy)) : (loY + hiY) / 2,
+  };
+}
+
+function applyPinch(offsetX, offsetY, scale, savedScale, focalX, focalY, pinchScale, viewW, viewH, b) {
+  const prev = scale;
+  const next = Math.min(2.2, Math.max(0.55, savedScale * pinchScale));
+  if (prev <= 0.01) return { offsetX, offsetY, scale, savedScale: next };
+  let ox = offsetX + focalX * (1 / next - 1 / prev);
+  let oy = offsetY + focalY * (1 / next - 1 / prev);
+  const clamped = clampPan(ox, oy, viewW, viewH, next, b);
+  return { offsetX: clamped.x, offsetY: clamped.y, scale: next, savedScale: next };
 }
 
 function assertFinite(label, v) {
@@ -68,13 +95,27 @@ for (let gy = 0; gy < GRID; gy++) {
   }
 }
 
-// --- round 2: pan stress ---
+// --- round 2: pan stress with iso bounds ---
+const BOUNDS = worldBounds(GRID);
+check('pan reaches west tiles', () => {
+  const viewW = 770;
+  const viewH = 360;
+  const clamped = clampPan(400, 200, viewW, viewH, 1, BOUNDS);
+  if (clamped.x < 200) throw new Error(`west pan too restricted x=${clamped.x}`);
+  const west = gridToScreen(0, 7);
+  const screenX = (west.x + clamped.x) * 1;
+  if (screenX < 0 || screenX > viewW) throw new Error(`west tile off screen at x=${screenX}`);
+});
+
 check('1000 pan updates', () => {
   let ox = 400;
   let oy = 300;
   for (let i = 0; i < 1000; i++) {
     ox += Math.sin(i * 0.17) * 12;
     oy += Math.cos(i * 0.13) * 9;
+    const c = clampPan(ox, oy, 770, 360, 1, BOUNDS);
+    ox = c.x;
+    oy = c.y;
     assertFinite('ox', ox);
     assertFinite('oy', oy);
     const g = eventToGrid(ox, oy, ox - 100, oy - 80, 1);
@@ -100,7 +141,7 @@ for (const [bx, by] of buildingTiles) {
     const focal = gridToScreen(bx, by);
     for (let i = 0; i < 200; i++) {
       const pinch = 0.95 + (i % 10) * 0.02;
-      const next = applyPinch(ox, oy, scale, saved, focal.x, focal.y, pinch);
+      const next = applyPinch(ox, oy, scale, saved, focal.x, focal.y, pinch, 770, 360, BOUNDS);
       ox = next.offsetX;
       oy = next.offsetY;
       scale = next.scale;
@@ -130,7 +171,7 @@ for (let round = 1; round <= ROUNDS; round++) {
         tapX = 200 + (i % 300);
         tapY = 150 + (i % 200);
         const pinch = i % 2 === 0 ? 1.08 : 0.92;
-        const next = applyPinch(ox, oy, scale, saved, tapX, tapY, pinch);
+        const next = applyPinch(ox, oy, scale, saved, tapX, tapY, pinch, 770, 360, BOUNDS);
         ox = next.offsetX;
         oy = next.offsetY;
         scale = next.scale;
