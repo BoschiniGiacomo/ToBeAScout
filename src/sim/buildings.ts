@@ -137,9 +137,11 @@ export function startUpgrade(
 
 export function applyCompletedConstruction(state: GameState, now: number): GameState {
   let qgChanged = false;
+  let anyChanged = false;
   const buildings = state.buildings.map((raw) => {
     const b = raw as PlacedBuildingExt;
     if (!b.buildEndsAt || b.buildEndsAt > now) return b;
+    anyChanged = true;
     if (b.pendingUpgrade) {
       const def = getBuildingDef(b.buildingId);
       const newLevel = Math.min(b.level + 1, def.maxLevel);
@@ -155,6 +157,8 @@ export function applyCompletedConstruction(state: GameState, now: number): GameS
     }
     return { ...b, buildEndsAt: null, pendingUpgrade: false };
   });
+
+  if (!anyChanged) return state;
 
   let next: GameState = { ...state, buildings };
   if (qgChanged) next = syncEraFromQg(next);

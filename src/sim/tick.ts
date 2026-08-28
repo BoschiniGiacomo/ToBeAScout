@@ -4,27 +4,20 @@ import { completeTraining } from './training';
 
 /** Advance offline timers: builds, production, training. */
 export function tick(state: GameState, now = Date.now()): GameState {
-  let next = applyCompletedConstruction(state, now);
-  next = completeTraining(next, now);
-  next = produceResources(next, now);
-  if (
-    next === state ||
-    (next.buildings === state.buildings &&
-      next.trainingQueue === state.trainingQueue &&
-      next.army === state.army &&
-      next.resources === state.resources)
-  ) {
-    if (next.lastTickAt === now) return state;
-    // Avoid useless re-renders when nothing gameplay-visible changed
-    if (
-      next.buildings === state.buildings &&
-      next.trainingQueue === state.trainingQueue &&
-      next.army === state.army &&
-      next.resources === state.resources &&
-      next.currentEra === state.currentEra
-    ) {
-      return state;
-    }
-  }
-  return { ...next, lastTickAt: now };
+  const afterBuild = applyCompletedConstruction(state, now);
+  const afterTrain = completeTraining(afterBuild, now);
+  const afterProd = produceResources(afterTrain, now);
+
+  const sameGameplay =
+    afterProd.buildings === state.buildings &&
+    afterProd.trainingQueue === state.trainingQueue &&
+    afterProd.army === state.army &&
+    afterProd.resources === state.resources &&
+    afterProd.currentEra === state.currentEra &&
+    afterProd.unlockedEras === state.unlockedEras;
+
+  // Nothing visible changed → keep same object (no React re-render / no Skia redraw)
+  if (sameGameplay) return state;
+
+  return { ...afterProd, lastTickAt: now };
 }

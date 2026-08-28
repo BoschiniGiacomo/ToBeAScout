@@ -130,7 +130,8 @@ const WorldCanvas = memo(function WorldCanvas({
 }) {
   useEffect(() => {
     mapLog('canvas.draw', { items: items.length, preview: previewCells ? 1 : 0 });
-  }, [items, previewCells]);
+    // intentionally only when item count / preview toggles — not every parent render
+  }, [items.length, previewCells]);
 
   return (
     <Canvas style={{ width: worldW, height: worldH }}>
@@ -379,6 +380,17 @@ export function IsometricWorld({
     ],
   }));
 
+  const buildingVisualKey = useMemo(
+    () =>
+      (state.buildings as PlacedBuilding[])
+        .map(
+          (b) =>
+            `${b.instanceId}:${b.buildingId}:${b.level}:${b.x}:${b.y}:${b.buildEndsAt ?? 0}`,
+        )
+        .join('|') + `|sel=${selectedBuildingId ?? ''}`,
+    [state.buildings, selectedBuildingId],
+  );
+
   const sorted = useMemo((): DrawItem[] => {
     if (mode === 'combat' && combat) {
       const items: DrawItem[] = combat.buildings
@@ -432,7 +444,9 @@ export function IsometricWorld({
         );
       })
       .sort((a, b) => a.depth - b.depth);
-  }, [combat, mode, selectedBuildingId, state.buildings]);
+    // Visual-only key: ignore resource `stored` churn from produceResources tick
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildingVisualKey, combat, mode]);
 
   const worldW = gridSize * TILE_W + 80;
   const worldH = gridSize * TILE_H + 120;
