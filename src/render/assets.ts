@@ -41,6 +41,7 @@ const SPRITES: Record<string, number> = {
   building_sopraelevata_2: require('../../assets/buildings/sopraelevata_lvl1.png'),
   building_sopraelevata_3: require('../../assets/buildings/sopraelevata_lvl1.png'),
   troop_maestro_giochi: require('../../assets/troops/maestro_giochi.png'),
+  troop_falegname: require('../../assets/troops/falegname.png'),
 };
 
 export function resolveTileSprite(_id: string = 'tile_grass_empty'): number | null {

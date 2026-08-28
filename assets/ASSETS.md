@@ -19,7 +19,7 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 - `assets/ui/app_logo.png` ✅ in-game logo
 - `assets/tiles/grass_empty.png` (asset on disk; runtime ground uses light Views)
 - `assets/troops/maestro_giochi.png` ✅
-- `assets/troops/falegname.png` (placeholder)
+- `assets/troops/falegname.png` ✅
 
 `buildingId` / `troopId` must match `src/content/buildings.json` and `troops.json`.
 
