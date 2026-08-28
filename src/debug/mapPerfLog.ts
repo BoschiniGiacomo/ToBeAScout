@@ -22,6 +22,8 @@ export function mapLogPanBegin(mode: string, buildings: number): void {
   const dt = lastPanAt ? now - lastPanAt : -1;
   lastPanAt = now;
   mapLog('pan.begin', { n: panCount, mode, buildings, sinceLastMs: dt });
+  setTimeout(() => mapLog('pan.alive', { n: panCount, afterMs: 400 }), 400);
+  setTimeout(() => mapLog('pan.alive', { n: panCount, afterMs: 1200 }), 1200);
 }
 
 export function mapLogPanEnd(): void {
