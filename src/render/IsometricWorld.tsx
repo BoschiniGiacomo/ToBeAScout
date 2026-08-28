@@ -273,6 +273,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const boundsMaxY = useSharedValue(maxY);
   const worldOriginX = useSharedValue(originX);
   const worldOriginY = useSharedValue(originY);
+  const interactingSV = useSharedValue(interacting ? 1 : 0);
+  const holdActiveSV = useSharedValue(0);
   const centered = useRef(false);
   const mounted = useRef(false);
   const buildingsCountRef = useRef(state.buildings.length);
@@ -291,6 +293,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const stateRef = useRef(state);
   stateRef.current = state;
   const hoverThrottleRef = useRef({ x: -1, y: -1, t: 0 });
+
+  useEffect(() => {
+    interactingSV.value = interacting ? 1 : 0;
+  }, [interacting, interactingSV]);
+
+  useEffect(() => {
+    holdActiveSV.value = holdRing ? 1 : 0;
+  }, [holdRing, holdActiveSV]);
 
   useEffect(() => {
     viewW.value = width;
@@ -555,13 +565,30 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPinch = useMemo(
     () =>
       Gesture.Pinch()
-        .enabled(!interacting && !holdRing)
-        .onBegin((e) => {
+        .manualActivation(true)
+        .onTouchesMove((e, state) => {
+          'worklet';
+          if (interactingSV.value > 0 || holdActiveSV.value > 0) {
+            state.fail();
+            return;
+          }
+          if (e.numberOfTouches >= 2) {
+            state.activate();
+          }
+        })
+        .onTouchesUp((e, state) => {
+          'worklet';
+          if (e.numberOfTouches < 2) {
+            state.fail();
+          }
+        })
+        .onStart((e) => {
           focalX.value = e.focalX;
           focalY.value = e.focalY;
           runOnJS(onPinchBeginJS)();
         })
         .onUpdate((e) => {
+          if (e.numberOfPointers < 2) return;
           const prev = scale.value;
           const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, savedScale.value * e.scale));
           if (prev <= 0.01) return;
@@ -590,7 +617,24 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .onFinalize(() => {
           runOnJS(onPinchEndJS)();
         }),
-    [interacting, holdRing, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
+    [
+      interactingSV,
+      holdActiveSV,
+      offsetX,
+      offsetY,
+      scale,
+      savedScale,
+      focalX,
+      focalY,
+      viewW,
+      viewH,
+      boundsMinX,
+      boundsMaxX,
+      boundsMinY,
+      boundsMaxY,
+      onPinchBeginJS,
+      onPinchEndJS,
+    ],
   );
 
   const placePointer = useMemo(
@@ -688,12 +732,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       runOnJS(handleTap)(gxy.x, gxy.y);
     });
     if (mode === 'village' && !interacting) {
+      g.requireExternalGestureToFail(cameraPan);
       g.requireExternalGestureToFail(moveHold);
     }
     return g;
   }, [
     mode,
     interacting,
+    cameraPan,
     moveHold,
     offsetX,
     offsetY,
@@ -709,11 +755,10 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       interacting
         ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
         : Gesture.Simultaneous(
-            cameraPinch,
-            Gesture.Exclusive(moveHold, cameraPan),
+            Gesture.Exclusive(cameraPinch, Gesture.Exclusive(cameraPan, moveHold)),
             tap,
           ),
-    [interacting, holdRing, placePointer, cameraPan, cameraPinch, moveHold, tap],
+    [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
   );
 
   const cameraTransform = useDerivedValue(() => [
