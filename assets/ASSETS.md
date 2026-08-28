@@ -15,8 +15,8 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 - `assets/buildings/tenda_squadriglia_lvl1.png` ✅ (footprint 2×2)
 - `assets/buildings/tenda_specialita_lvl1.png` ✅ (footprint 1×1)
 - `assets/buildings/sopraelevata_lvl1.png` ✅ (footprint 2×2)
-- `assets/icon.png` / `assets/logo.png` ✅ app icon & brand
-- `assets/ui/app_logo.png` ✅ in-game logo
+- `assets/icon.png` / `assets/logo.png` ✅ icona app (launcher, splash, store)
+- `assets/ui/app_logo.png` ✅ sorgente brand (non usata in-game)
 - `assets/tiles/grass_empty.png` (asset on disk; runtime ground uses light Views)
 - `assets/troops/maestro_giochi.png` ✅
 - `assets/troops/falegname_lvl1.png` ✅

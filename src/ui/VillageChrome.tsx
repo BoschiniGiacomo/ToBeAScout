@@ -7,7 +7,6 @@ import type { PlacedBuildingExt } from '../sim/buildings';
 
 const SHOP_ICON = require('../../assets/ui/shop_button.png');
 const MISSIONS_ICON = require('../../assets/ui/missions_button.png');
-const APP_LOGO = require('../../assets/ui/app_logo.png');
 
 type Props = {
   onOpenShop: () => void;
@@ -31,7 +30,6 @@ export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
   return (
     <>
       <View style={styles.topLeft} pointerEvents="none">
-        <Image source={APP_LOGO} style={styles.logo} resizeMode="contain" />
         <Text style={styles.era}>{era.name}</Text>
       </View>
 
@@ -105,21 +103,15 @@ export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
 const styles = StyleSheet.create({
   topLeft: {
     position: 'absolute',
-    top: 8,
-    left: 10,
+    top: 10,
+    left: 12,
     zIndex: 40,
     alignItems: 'flex-start',
   },
-  logo: {
-    width: 48,
-    height: 48,
-  },
   era: {
     color: '#FFF59D',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '800',
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
