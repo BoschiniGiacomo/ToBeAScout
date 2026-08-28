@@ -270,8 +270,10 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const mounted = useRef(false);
   const buildingsCountRef = useRef(state.buildings.length);
   const modeRef = useRef(mode);
+  const interactingRef = useRef(interacting);
   buildingsCountRef.current = state.buildings.length;
   modeRef.current = mode;
+  interactingRef.current = interacting;
 
   const [spritesReady, setSpritesReady] = useState(false);
   const [holdRing, setHoldRing] = useState<{ x: number; y: number } | null>(null);
@@ -381,44 +383,55 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   );
 
   const beginHoldJS = useCallback(
-    (screenX: number, screenY: number) => {
-      if (modeRef.current !== 'village' || interacting) return;
-      const gxy = screenToGrid(
-        screenX / scale.value - offsetX.value - originX,
-        screenY / scale.value - offsetY.value - originY,
-      );
-      const hit = findBuildingAt(buildingsRef.current as PlacedBuilding[], gxy.x, gxy.y);
-      if (!hit) return;
-      const check = canStartMove(stateRef.current, hit.instanceId);
-      if (!check.ok) {
-        onMoveHoldBlocked?.(check.reason);
-        return;
+    (screenX: number, screenY: number, gx: number, gy: number) => {
+      try {
+        if (modeRef.current !== 'village' || interactingRef.current) return;
+        const hit = findBuildingAt(buildingsRef.current as PlacedBuilding[], gx, gy);
+        if (!hit) return;
+        const check = canStartMove(stateRef.current, hit.instanceId);
+        if (!check.ok) {
+          onMoveHoldBlocked?.(check.reason);
+          return;
+        }
+        mapLog('hold.begin', { building: hit.buildingId, gx, gy });
+        holdTargetRef.current = hit.instanceId;
+        setHoldRing({ x: screenX, y: screenY });
+        holdProgress.value = 0;
+        holdProgress.value = withTiming(1, { duration: MOVE_HOLD_MS });
+      } catch (e) {
+        logCrash('action', 'map.hold.begin', e, { screenX, screenY, gx, gy });
       }
-      holdTargetRef.current = hit.instanceId;
-      setHoldRing({ x: screenX, y: screenY });
-      holdProgress.value = 0;
-      holdProgress.value = withTiming(1, { duration: MOVE_HOLD_MS });
     },
-    [holdProgress, offsetX, offsetY, scale, originX, originY, interacting, onMoveHoldBlocked],
+    [holdProgress, onMoveHoldBlocked],
   );
 
   const completeHoldJS = useCallback(
     (gx: number, gy: number) => {
-      const id = holdTargetRef.current;
-      holdTargetRef.current = null;
-      setHoldRing(null);
-      holdProgress.value = 0;
-      if (!id) return;
-      onStartMoveBuilding?.(id, gx, gy);
+      try {
+        const id = holdTargetRef.current;
+        holdTargetRef.current = null;
+        setHoldRing(null);
+        holdProgress.value = 0;
+        if (!id) return;
+        mapLog('hold.complete', { id, gx, gy });
+        onStartMoveBuilding?.(id, gx, gy);
+      } catch (e) {
+        logCrash('action', 'map.hold.complete', e, { gx, gy });
+      }
     },
     [holdProgress, onStartMoveBuilding],
   );
 
   const cancelHoldJS = useCallback(() => {
-    holdTargetRef.current = null;
-    setHoldRing(null);
-    cancelAnimation(holdProgress);
-    holdProgress.value = 0;
+    try {
+      if (holdTargetRef.current) mapLog('hold.cancel', { id: holdTargetRef.current });
+      holdTargetRef.current = null;
+      setHoldRing(null);
+      cancelAnimation(holdProgress);
+      holdProgress.value = 0;
+    } catch (e) {
+      logCrash('action', 'map.hold.cancel', e);
+    }
   }, [holdProgress]);
 
   const handleTap = useCallback(
@@ -526,7 +539,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPinch = useMemo(
     () =>
       Gesture.Pinch()
-        .enabled(!interacting)
+        .enabled(!interacting && !holdRing)
         .onBegin((e) => {
           focalX.value = e.focalX;
           focalY.value = e.focalY;
@@ -561,7 +574,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .onFinalize(() => {
           runOnJS(onPinchEndJS)();
         }),
-    [interacting, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
+    [interacting, holdRing, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
   );
 
   const placePointer = useMemo(
@@ -604,7 +617,16 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .minDuration(MOVE_HOLD_MS)
         .maxDistance(12)
         .onBegin((e) => {
-          runOnJS(beginHoldJS)(e.x, e.y);
+          const gxy = eventToGrid(
+            e.x,
+            e.y,
+            offsetX.value,
+            offsetY.value,
+            scale.value,
+            worldOriginX.value,
+            worldOriginY.value,
+          );
+          runOnJS(beginHoldJS)(e.x, e.y, gxy.x, gxy.y);
         })
         .onStart((e) => {
           const gxy = eventToGrid(
@@ -670,8 +692,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     () =>
       interacting
         ? Gesture.Simultaneous(placePointer, cameraPan, tap)
-        : Gesture.Simultaneous(cameraPinch, cameraPan, moveHold, tap),
-    [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
+        : Gesture.Simultaneous(
+            cameraPinch,
+            Gesture.Exclusive(moveHold, cameraPan),
+            tap,
+          ),
+    [interacting, holdRing, placePointer, cameraPan, cameraPinch, moveHold, tap],
   );
 
   const cameraTransform = useDerivedValue(() => [
