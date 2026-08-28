@@ -14,6 +14,7 @@ import { ResourceBarsHud } from '../src/ui/ResourceBarsHud';
 import { ShopSheet } from '../src/ui/ShopSheet';
 import { VillageChrome } from '../src/ui/VillageChrome';
 import { canMove, canPlace } from '../src/sim/buildings';
+import { META } from '../src/sim/content';
 
 export default function VillageScreen() {
   const {
@@ -37,6 +38,12 @@ export default function VillageScreen() {
   useEffect(() => {
     if (!placementBuilding && !movingBuildingId) setHoverTile(null);
   }, [placementBuilding, movingBuildingId]);
+
+  useEffect(() => {
+    if (!placementBuilding) return;
+    const c = Math.floor(META.gridSize / 2) - 1;
+    setHoverTile({ x: c, y: c });
+  }, [placementBuilding]);
 
   useEffect(() => {
     if (!message) return;

@@ -5,9 +5,10 @@ import {
   Canvas,
   Group,
   Image as SkiaImage,
+  Path,
   Picture,
-  Rect,
   RoundedRect,
+  Skia,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, useSharedValue, runOnJS, withTiming, cancelAnimation } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
@@ -115,22 +116,28 @@ const PreviewOverlay = memo(function PreviewOverlay({
   originX: number;
   originY: number;
 }) {
+  const cellKey = cells.map((c) => `${c.x},${c.y}`).join('|');
+  const path = useMemo(() => {
+    const p = Skia.Path.Make();
+    for (const c of cells) {
+      const center = gridToScreen(c.x, c.y);
+      const x = center.x + originX;
+      const y = center.y + originY;
+      p.moveTo(x, y - TILE_H / 2);
+      p.lineTo(x + TILE_W / 2, y);
+      p.lineTo(x, y + TILE_H / 2);
+      p.lineTo(x - TILE_W / 2, y);
+      p.close();
+    }
+    return p;
+  }, [cellKey, originX, originY, cells]);
+
   return (
-    <>
-      {cells.map((c) => {
-        const p = gridToScreen(c.x, c.y);
-        return (
-          <Rect
-            key={`p-${c.x}-${c.y}`}
-            x={p.x + originX - TILE_W / 2}
-            y={p.y + originY - TILE_H / 2}
-            width={TILE_W}
-            height={TILE_H}
-            color={valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
-          />
-        );
-      })}
-    </>
+    <Path
+      path={path}
+      color={valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
+      style="fill"
+    />
   );
 });
 
@@ -283,6 +290,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   buildingsRef.current = state.buildings;
   const stateRef = useRef(state);
   stateRef.current = state;
+  const hoverThrottleRef = useRef({ x: -1, y: -1, t: 0 });
 
   useEffect(() => {
     viewW.value = width;
@@ -378,7 +386,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   ]);
 
   const reportHover = useCallback(
-    (gx: number, gy: number) => onHoverTile?.(gx, gy),
+    (gx: number, gy: number) => {
+      const now = Date.now();
+      const last = hoverThrottleRef.current;
+      if (last.x === gx && last.y === gy) return;
+      if (now - last.t < 48) return;
+      hoverThrottleRef.current = { x: gx, y: gy, t: now };
+      onHoverTile?.(gx, gy);
+    },
     [onHoverTile],
   );
 
@@ -442,6 +457,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           return;
         }
         if (placementBuildingId) {
+          mapLog('place.tap', { gx, gy, building: placementBuildingId });
           onConfirmPlace?.(gx, gy);
           return;
         }
@@ -691,7 +707,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const composed = useMemo(
     () =>
       interacting
-        ? Gesture.Simultaneous(placePointer, cameraPan, tap)
+        ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
         : Gesture.Simultaneous(
             cameraPinch,
             Gesture.Exclusive(moveHold, cameraPan),
@@ -774,6 +790,23 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     );
   }, [relocating, movingBuildingId, hoverTile, state.buildings]);
 
+  const placementGhostItem = useMemo((): DrawItem | null => {
+    if (!placing || !placementBuildingId || !hoverTile) return null;
+    const def = getBuildingDef(placementBuildingId);
+    return toDrawItem(
+      'ghost-place',
+      hoverTile.x,
+      hoverTile.y,
+      def.footprint.w,
+      def.footprint.h,
+      placementBuildingId,
+      1,
+      def.color,
+    );
+  }, [placing, placementBuildingId, hoverTile]);
+
+  const interactGhostItem = movingGhostItem ?? placementGhostItem;
+
   const combatUnits = useMemo((): DrawItem[] => {
     if (mode !== 'combat' || !combat) return [];
     return combat.units
@@ -852,8 +885,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
               {combatUnits.length > 0 ? (
                 <UnitLayer units={combatUnits} originX={originX} originY={originY} />
               ) : null}
-              {movingGhostItem ? (
-                <BuildingGhost item={movingGhostItem} originX={originX} originY={originY} />
+              {interactGhostItem ? (
+                <BuildingGhost item={interactGhostItem} originX={originX} originY={originY} />
               ) : null}
               {previewCells ? (
                 <PreviewOverlay

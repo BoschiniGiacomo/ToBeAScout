@@ -94,9 +94,10 @@ export function getBuildingsPicture(
   items: PictureDrawItem[],
 ): SkPicture {
   if (key === cachedKey && cachedPicture) return cachedPicture;
-  cachedPicture?.dispose?.();
+  const prev = cachedPicture;
   cachedPicture = recordBuildingsPicture(worldW, worldH, originX, originY, items);
   cachedKey = key;
+  prev?.dispose?.();
   return cachedPicture;
 }
 

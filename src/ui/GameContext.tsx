@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  startTransition,
 } from 'react';
 import type { CombatState, GameState } from '../sim/types';
 import { loadGame, resetGame, saveGame } from '../save/storage';
@@ -153,8 +154,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setMessage(result.error);
         return;
       }
-      persist(result.state);
-      setPlacementBuilding(null);
+      startTransition(() => {
+        persist(result.state);
+        setPlacementBuildingState(null);
+      });
       setMessage(`${buildingId} in costruzione`);
     }),
     [persist],
@@ -167,8 +170,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setMessage(result.error);
         return;
       }
-      persist(result.state);
-      setMovingBuildingIdState(null);
+      startTransition(() => {
+        persist(result.state);
+        setMovingBuildingIdState(null);
+      });
       setMessage('Edificio spostato');
     }),
     [persist],
