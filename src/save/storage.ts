@@ -14,6 +14,8 @@ export async function loadGame(): Promise<GameState> {
     // Rename legacy building id
     for (const b of parsed.buildings ?? []) {
       if (b.buildingId === 'palisata') b.buildingId = 'sopraelevata';
+      if (typeof b.stored !== 'number') b.stored = 0;
+      if (typeof b.lastCollectAt !== 'number') b.lastCollectAt = Date.now();
     }
     if (!parsed.troopLevels) parsed.troopLevels = {};
     if (parsed.troopUpgrade === undefined) parsed.troopUpgrade = null;

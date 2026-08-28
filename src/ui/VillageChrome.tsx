@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
-import { getBuildingDef, getEraDef } from '../sim/content';
-import type { PlacedBuildingExt } from '../sim/buildings';
+import { getEraDef } from '../sim/content';
 
 const SHOP_ICON = require('../../assets/ui/shop_button.png');
 const MISSIONS_ICON = require('../../assets/ui/missions_button.png');
@@ -15,17 +14,8 @@ type Props = {
 
 /** Clash-style bottom chrome: missions left, shop right. */
 export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
-  const { state, placementBuilding, selectedBuildingId, upgrade, collect, setSelectedBuildingId } =
-    useGame();
+  const { state, placementBuilding } = useGame();
   const era = getEraDef(state.currentEra);
-
-  const selected = selectedBuildingId
-    ? (state.buildings.find((x) => x.instanceId === selectedBuildingId) as
-        | PlacedBuildingExt
-        | undefined)
-    : undefined;
-  const selectedDef = selected ? getBuildingDef(selected.buildingId) : null;
-  const busy = !!(selected?.buildEndsAt && selected.buildEndsAt > Date.now());
 
   return (
     <>
@@ -38,41 +28,6 @@ export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
           <Pressable style={styles.cancelPlace} onPress={onCancelPlace}>
             <Text style={styles.cancelPlaceText}>Annulla</Text>
           </Pressable>
-        </View>
-      ) : null}
-
-      {selected && selectedDef && !placementBuilding ? (
-        <View style={styles.selectCard}>
-          <View style={styles.selectHeader}>
-            <Text style={styles.selectTitle}>
-              {selectedDef.name} · Lv {selected.level}
-              {busy ? '…' : ''}
-            </Text>
-            <Pressable onPress={() => setSelectedBuildingId(null)} hitSlop={10}>
-              <Text style={styles.selectClose}>✕</Text>
-            </Pressable>
-          </View>
-          {selectedDef.produces ? (
-            <Text style={styles.selectMeta}>
-              Magazzino: {Math.floor(selected.stored)} {selectedDef.produces.resource}
-            </Text>
-          ) : null}
-          <View style={styles.selectRow}>
-            {selectedDef.produces ? (
-              <Pressable style={styles.actionBtn} onPress={() => collect(selected.instanceId)}>
-                <Text style={styles.actionText}>Raccogli</Text>
-              </Pressable>
-            ) : null}
-            {selected.level < selectedDef.maxLevel ? (
-              <Pressable
-                style={[styles.actionBtn, busy && styles.actionDisabled]}
-                onPress={() => upgrade(selected.instanceId)}
-                disabled={busy}
-              >
-                <Text style={styles.actionText}>Upgrade</Text>
-              </Pressable>
-            ) : null}
-          </View>
         </View>
       ) : null}
 
@@ -159,33 +114,4 @@ const styles = StyleSheet.create({
     borderColor: '#FFE0B2',
   },
   cancelPlaceText: { color: '#FFE0B2', fontWeight: '800' },
-  selectCard: {
-    position: 'absolute',
-    left: 90,
-    right: 90,
-    bottom: 100,
-    backgroundColor: 'rgba(15, 30, 18, 0.95)',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#C9A227',
-    zIndex: 55,
-  },
-  selectHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  selectTitle: { color: '#E8F5E9', fontWeight: '800', fontSize: 14, flex: 1 },
-  selectClose: { color: '#ECEFF1', fontSize: 16, paddingHorizontal: 4 },
-  selectMeta: { color: '#FFF59D', fontSize: 12, marginTop: 4 },
-  selectRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  actionBtn: {
-    backgroundColor: '#33691E',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  actionDisabled: { opacity: 0.45 },
-  actionText: { color: '#F1F8E9', fontWeight: '700' },
 });

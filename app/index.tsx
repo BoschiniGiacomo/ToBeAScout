@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, startTransition } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../src/ui/GameContext';
 import { IsometricWorld } from '../src/render/IsometricWorld';
@@ -23,8 +24,6 @@ export default function VillageScreen() {
     place,
     placementBuilding,
     setPlacementBuilding,
-    selectedBuildingId,
-    setSelectedBuildingId,
   } = useGame();
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const mapSizeLocked = useRef(false);
@@ -52,8 +51,8 @@ export default function VillageScreen() {
   };
 
   const onSelectBuilding = useCallback((id: string | null) => {
-    startTransition(() => setSelectedBuildingId(id));
-  }, [setSelectedBuildingId]);
+    if (id) router.push({ pathname: '/building', params: { id } });
+  }, []);
 
   const onHoverTile = useCallback((gx: number, gy: number) => {
     setHoverTile((prev) =>
@@ -89,7 +88,6 @@ export default function VillageScreen() {
             state={state}
             width={mapSize.width}
             height={mapSize.height}
-            selectedBuildingId={selectedBuildingId}
             placementBuildingId={placementBuilding}
             hoverTile={hoverTile}
             onSelectBuilding={onSelectBuilding}

@@ -40,7 +40,6 @@ interface Props {
   height?: number;
   mode?: 'village' | 'combat';
   combat?: CombatState | null;
-  selectedBuildingId?: string | null;
   placementBuildingId?: string | null;
   hoverTile?: { x: number; y: number } | null;
   onHoverTile?: (gx: number, gy: number) => void;
@@ -112,17 +111,6 @@ const PreviewOverlay = memo(function PreviewOverlay({
   );
 });
 
-function selectionRing(item: DrawItem) {
-  const c = footprintCenterScreen(item.x, item.y, item.w, item.h);
-  const bw = Math.max(36, (item.w + item.h) * (TILE_W / 2) * 0.9);
-  const bh = item.sprite ? Math.max(48, bw * 0.9) : Math.max(24, item.h * TILE_H * 0.85 + 14);
-  const southY = c.y + ((item.w + item.h - 2) * TILE_H) / 4;
-  const left = c.x - bw / 2 - 2;
-  const top = southY - bh + TILE_H * 0.15 - 2;
-  if (!Number.isFinite(left) || !Number.isFinite(top) || bw <= 0 || bh <= 0) return null;
-  return { left, top, bw: bw + 4, bh: bh + 4 };
-}
-
 function toDrawItem(
   key: string,
   x: number,
@@ -184,7 +172,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   height,
   mode = 'village',
   combat,
-  selectedBuildingId,
   placementBuildingId,
   hoverTile,
   onHoverTile,
@@ -345,8 +332,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       Gesture.Pan()
         .minPointers(placing ? 2 : 1)
         .maxPointers(placing ? 2 : 1)
-        .activeOffsetX([-4, 4])
-        .activeOffsetY([-4, 4])
+        .activeOffsetX([-12, 12])
+        .activeOffsetY([-12, 12])
         .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
@@ -447,14 +434,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   );
 
   const tap = useMemo(() => {
-    const g = Gesture.Tap().maxDuration(250).onEnd((e) => {
+    return Gesture.Tap().maxDuration(250).onEnd((e) => {
       const gxy = eventToGrid(e.x, e.y, offsetX.value, offsetY.value, scale.value);
       if (placing) runOnJS(reportHover)(gxy.x, gxy.y);
       runOnJS(handleTap)(gxy.x, gxy.y);
     });
-    if (!placing) g.requireExternalGestureToFail(cameraPan);
-    return g;
-  }, [placing, cameraPan, offsetX, offsetY, scale, reportHover, handleTap]);
+  }, [placing, offsetX, offsetY, scale, reportHover, handleTap]);
 
   const composed = useMemo(
     () =>
@@ -553,25 +538,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spritesReady, buildingVisualKey, combatBuildingKey, worldW, worldH]);
 
-  const selectedItem = useMemo(() => {
-    if (!selectedBuildingId) return null;
-    const b = (state.buildings as PlacedBuilding[]).find(
-      (x) => x.instanceId === selectedBuildingId,
-    );
-    if (!b) return null;
-    const def = getBuildingDef(b.buildingId);
-    return toDrawItem(
-      b.instanceId,
-      b.x,
-      b.y,
-      def.footprint.w,
-      def.footprint.h,
-      b.buildingId,
-      b.level,
-      def.color,
-    );
-  }, [selectedBuildingId, state.buildings]);
-
   const previewCells = useMemo(() => {
     if (!placing || !placementBuildingId || !hoverTile) return null;
     const def = getBuildingDef(placementBuildingId);
@@ -587,8 +553,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   if (width <= 0 || height <= 0) return null;
 
-  const ring = selectedItem ? selectionRing(selectedItem) : null;
-
   return (
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
@@ -600,18 +564,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
               {combatUnits.length > 0 ? <UnitLayer units={combatUnits} /> : null}
               {previewCells ? (
                 <PreviewOverlay cells={previewCells.cells} valid={previewCells.valid} />
-              ) : null}
-              {ring ? (
-                <RoundedRect
-                  x={ring.left}
-                  y={ring.top}
-                  width={ring.bw}
-                  height={ring.bh}
-                  r={4}
-                  color="rgba(255,245,157,0.85)"
-                  style="stroke"
-                  strokeWidth={2}
-                />
               ) : null}
             </Group>
           </Canvas>
