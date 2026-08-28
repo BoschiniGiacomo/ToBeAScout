@@ -42,6 +42,47 @@ export function tilesOverlap(
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
+/** Screen-space ground AABB covering all footprint tiles (diamond union). */
+export function footprintGroundBounds(
+  gx: number,
+  gy: number,
+  w: number,
+  h: number,
+): {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  width: number;
+  height: number;
+  centerX: number;
+  southY: number;
+} {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let dy = 0; dy < h; dy++) {
+    for (let dx = 0; dx < w; dx++) {
+      const c = gridToScreen(gx + dx, gy + dy);
+      minX = Math.min(minX, c.x - TILE_W / 2);
+      maxX = Math.max(maxX, c.x + TILE_W / 2);
+      minY = Math.min(minY, c.y - TILE_H / 2);
+      maxY = Math.max(maxY, c.y + TILE_H / 2);
+    }
+  }
+  return {
+    minX,
+    maxX,
+    minY,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    southY: maxY,
+  };
+}
+
 /** Southern ground contact point of an isometric footprint (anchor target). */
 export function footprintSouthTipScreen(
   gx: number,
