@@ -4,18 +4,21 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   Canvas,
   Group,
+  Image as SkiaImage,
   Picture,
   Rect,
   RoundedRect,
 } from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue, runOnJS } from 'react-native-reanimated';
+import { useDerivedValue, useSharedValue, runOnJS, withTiming, cancelAnimation } from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
-import { canPlace } from '../sim/buildings';
+import { canMove, canPlace, canStartMove } from '../sim/buildings';
 import { resolveBuildingSprite } from './assets';
-import { getBuildingsPicture, clearBuildingsPictureCache } from './buildingsPicture';
+import { getBuildingsPicture, clearBuildingsPictureCache, layoutDrawItem } from './buildingsPicture';
 import { worldLayout } from './buildWorldPicture';
+import { MoveHoldRing } from './MoveHoldRing';
 import { preloadAllSprites } from './spriteCache';
+import { getSkiaImage } from './spriteCache';
 import { getTerrainPicture } from './terrainPicture';
 import {
   TILE_H,
@@ -39,9 +42,13 @@ interface Props {
   mode?: 'village' | 'combat';
   combat?: CombatState | null;
   placementBuildingId?: string | null;
+  movingBuildingId?: string | null;
   hoverTile?: { x: number; y: number } | null;
   onHoverTile?: (gx: number, gy: number) => void;
   onConfirmPlace?: (gx: number, gy: number) => void;
+  onConfirmMove?: (gx: number, gy: number) => void;
+  onStartMoveBuilding?: (instanceId: string, gx: number, gy: number) => void;
+  onMoveHoldBlocked?: (reason: string) => void;
   onTapTile?: (gx: number, gy: number) => void;
   onSelectBuilding?: (instanceId: string | null) => void;
 }
@@ -61,6 +68,18 @@ type DrawItem = {
 const PAN_MARGIN = 48;
 const MIN_SCALE = 0.55;
 const MAX_SCALE = 2.2;
+const MOVE_HOLD_MS = 750;
+
+function findBuildingAt(
+  buildings: PlacedBuilding[],
+  gx: number,
+  gy: number,
+): PlacedBuilding | undefined {
+  return buildings.find((b) => {
+    const def = getBuildingDef(b.buildingId);
+    return gx >= b.x && gx < b.x + def.footprint.w && gy >= b.y && gy < b.y + def.footprint.h;
+  });
+}
 
 function clampPan(
   ox: number,
@@ -182,6 +201,31 @@ const UnitLayer = memo(function UnitLayer({
   );
 });
 
+const BuildingGhost = memo(function BuildingGhost({
+  item,
+  originX,
+  originY,
+}: {
+  item: DrawItem;
+  originX: number;
+  originY: number;
+}) {
+  const rect = useMemo(() => layoutDrawItem(item), [item]);
+  if (!item.sprite) return null;
+  const img = getSkiaImage(item.sprite);
+  if (!img) return null;
+  return (
+    <SkiaImage
+      image={img}
+      x={rect.left + originX}
+      y={rect.top + originY}
+      width={rect.bw}
+      height={rect.bh}
+      opacity={0.9}
+    />
+  );
+});
+
 const IsometricWorldInner = memo(function IsometricWorldInner({
   state,
   width,
@@ -189,14 +233,20 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   mode = 'village',
   combat,
   placementBuildingId,
+  movingBuildingId,
   hoverTile,
   onHoverTile,
   onConfirmPlace,
+  onConfirmMove,
+  onStartMoveBuilding,
+  onMoveHoldBlocked,
   onTapTile,
   onSelectBuilding,
 }: Props & { width: number; height: number }) {
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
+  const relocating = mode === 'village' && !!movingBuildingId;
+  const interacting = placing || relocating;
   const layout = useMemo(() => worldLayout(gridSize), [gridSize]);
   const { worldW, worldH, originX, originY, minX, maxX, minY, maxY } = layout;
 
@@ -224,6 +274,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   modeRef.current = mode;
 
   const [spritesReady, setSpritesReady] = useState(false);
+  const [holdRing, setHoldRing] = useState<{ x: number; y: number } | null>(null);
+  const holdProgress = useSharedValue(0);
+  const holdTargetRef = useRef<string | null>(null);
+  const buildingsRef = useRef(state.buildings);
+  buildingsRef.current = state.buildings;
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     viewW.value = width;
@@ -294,7 +351,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         h: Math.round(height),
         grid: gridSize,
         buildings: state.buildings.length,
-        placing: placing ? 1 : 0,
+        placing: interacting ? 1 : 0,
         renderer: 'skia-coc-layers',
       });
     }
@@ -323,6 +380,47 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     [onHoverTile],
   );
 
+  const beginHoldJS = useCallback(
+    (screenX: number, screenY: number) => {
+      if (modeRef.current !== 'village' || interacting) return;
+      const gxy = screenToGrid(
+        screenX / scale.value - offsetX.value - originX,
+        screenY / scale.value - offsetY.value - originY,
+      );
+      const hit = findBuildingAt(buildingsRef.current as PlacedBuilding[], gxy.x, gxy.y);
+      if (!hit) return;
+      const check = canStartMove(stateRef.current, hit.instanceId);
+      if (!check.ok) {
+        onMoveHoldBlocked?.(check.reason);
+        return;
+      }
+      holdTargetRef.current = hit.instanceId;
+      setHoldRing({ x: screenX, y: screenY });
+      holdProgress.value = 0;
+      holdProgress.value = withTiming(1, { duration: MOVE_HOLD_MS });
+    },
+    [holdProgress, offsetX, offsetY, scale, originX, originY, interacting, onMoveHoldBlocked],
+  );
+
+  const completeHoldJS = useCallback(
+    (gx: number, gy: number) => {
+      const id = holdTargetRef.current;
+      holdTargetRef.current = null;
+      setHoldRing(null);
+      holdProgress.value = 0;
+      if (!id) return;
+      onStartMoveBuilding?.(id, gx, gy);
+    },
+    [holdProgress, onStartMoveBuilding],
+  );
+
+  const cancelHoldJS = useCallback(() => {
+    holdTargetRef.current = null;
+    setHoldRing(null);
+    cancelAnimation(holdProgress);
+    holdProgress.value = 0;
+  }, [holdProgress]);
+
   const handleTap = useCallback(
     (gx: number, gy: number) => {
       try {
@@ -334,10 +432,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           onConfirmPlace?.(gx, gy);
           return;
         }
-        const hit = state.buildings.find((b) => {
-          const def = getBuildingDef(b.buildingId);
-          return gx >= b.x && gx < b.x + def.footprint.w && gy >= b.y && gy < b.y + def.footprint.h;
-        });
+        if (movingBuildingId) {
+          onConfirmMove?.(gx, gy);
+          return;
+        }
+        const hit = findBuildingAt(state.buildings as PlacedBuilding[], gx, gy);
         mapLog('tap', { gx, gy, hit: hit?.buildingId ?? 'none' });
         onSelectBuilding?.(hit?.instanceId ?? null);
         onTapTile?.(gx, gy);
@@ -345,7 +444,16 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         logCrash('action', 'map.tap', e, { gx, gy, mode });
       }
     },
-    [mode, onConfirmPlace, onSelectBuilding, onTapTile, placementBuildingId, state.buildings],
+    [
+      mode,
+      onConfirmPlace,
+      onConfirmMove,
+      onSelectBuilding,
+      onTapTile,
+      placementBuildingId,
+      movingBuildingId,
+      state.buildings,
+    ],
   );
 
   const onPanBeginJS = useCallback(() => {
@@ -370,8 +478,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPan = useMemo(
     () =>
       Gesture.Pan()
-        .minPointers(placing ? 2 : 1)
-        .maxPointers(placing ? 2 : 1)
+        .minPointers(interacting ? 2 : 1)
+        .maxPointers(interacting ? 2 : 1)
         .activeOffsetX([-12, 12])
         .activeOffsetY([-12, 12])
         .onBegin(() => {
@@ -398,7 +506,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           runOnJS(onPanEndJS)();
         }),
     [
-      placing,
+      interacting,
       offsetX,
       offsetY,
       startX,
@@ -418,7 +526,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPinch = useMemo(
     () =>
       Gesture.Pinch()
-        .enabled(!placing)
+        .enabled(!interacting)
         .onBegin((e) => {
           focalX.value = e.focalX;
           focalY.value = e.focalY;
@@ -453,13 +561,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .onFinalize(() => {
           runOnJS(onPinchEndJS)();
         }),
-    [placing, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
+    [interacting, offsetX, offsetY, scale, savedScale, focalX, focalY, viewW, viewH, boundsMinX, boundsMaxX, boundsMinY, boundsMaxY, onPinchBeginJS, onPinchEndJS],
   );
 
   const placePointer = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(placing)
+        .enabled(interacting)
         .minPointers(1)
         .maxPointers(1)
         .onBegin((e) => {
@@ -486,11 +594,49 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           );
           runOnJS(reportHover)(g.x, g.y);
         }),
-    [placing, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover],
+    [interacting, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover],
+  );
+
+  const moveHold = useMemo(
+    () =>
+      Gesture.LongPress()
+        .enabled(mode === 'village' && !interacting)
+        .minDuration(MOVE_HOLD_MS)
+        .maxDistance(12)
+        .onBegin((e) => {
+          runOnJS(beginHoldJS)(e.x, e.y);
+        })
+        .onStart((e) => {
+          const gxy = eventToGrid(
+            e.x,
+            e.y,
+            offsetX.value,
+            offsetY.value,
+            scale.value,
+            worldOriginX.value,
+            worldOriginY.value,
+          );
+          runOnJS(completeHoldJS)(gxy.x, gxy.y);
+        })
+        .onFinalize(() => {
+          runOnJS(cancelHoldJS)();
+        }),
+    [
+      mode,
+      interacting,
+      offsetX,
+      offsetY,
+      scale,
+      worldOriginX,
+      worldOriginY,
+      beginHoldJS,
+      completeHoldJS,
+      cancelHoldJS,
+    ],
   );
 
   const tap = useMemo(() => {
-    return Gesture.Tap().maxDuration(250).onEnd((e) => {
+    const g = Gesture.Tap().maxDuration(250).onEnd((e) => {
       const gxy = eventToGrid(
         e.x,
         e.y,
@@ -500,17 +646,32 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         worldOriginX.value,
         worldOriginY.value,
       );
-      if (placing) runOnJS(reportHover)(gxy.x, gxy.y);
+      if (interacting) runOnJS(reportHover)(gxy.x, gxy.y);
       runOnJS(handleTap)(gxy.x, gxy.y);
     });
-  }, [placing, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover, handleTap]);
+    if (mode === 'village' && !interacting) {
+      g.requireExternalGestureToFail(moveHold);
+    }
+    return g;
+  }, [
+    mode,
+    interacting,
+    moveHold,
+    offsetX,
+    offsetY,
+    scale,
+    worldOriginX,
+    worldOriginY,
+    reportHover,
+    handleTap,
+  ]);
 
   const composed = useMemo(
     () =>
-      placing
+      interacting
         ? Gesture.Simultaneous(placePointer, cameraPan, tap)
-        : Gesture.Simultaneous(cameraPinch, cameraPan, tap),
-    [placing, placePointer, cameraPan, cameraPinch, tap],
+        : Gesture.Simultaneous(cameraPinch, cameraPan, moveHold, tap),
+    [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
   );
 
   const cameraTransform = useDerivedValue(() => [
@@ -550,6 +711,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     }
 
     return (state.buildings as PlacedBuilding[])
+      .filter((b) => b.instanceId !== movingBuildingId)
       .map((b) => {
         const def = getBuildingDef(b.buildingId);
         return toDrawItem(
@@ -567,7 +729,24 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         (a, b) => depthKey(a.x, a.y, a.w, a.h, 1) - depthKey(b.x, b.y, b.w, b.h, 1),
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildingVisualKey, combatBuildingKey, mode]);
+  }, [buildingVisualKey, combatBuildingKey, mode, movingBuildingId]);
+
+  const movingGhostItem = useMemo((): DrawItem | null => {
+    if (!relocating || !movingBuildingId || !hoverTile) return null;
+    const b = (state.buildings as PlacedBuilding[]).find((x) => x.instanceId === movingBuildingId);
+    if (!b) return null;
+    const def = getBuildingDef(b.buildingId);
+    return toDrawItem(
+      b.instanceId,
+      hoverTile.x,
+      hoverTile.y,
+      def.footprint.w,
+      def.footprint.h,
+      b.buildingId,
+      b.level,
+      def.color,
+    );
+  }, [relocating, movingBuildingId, hoverTile, state.buildings]);
 
   const combatUnits = useMemo((): DrawItem[] => {
     if (mode !== 'combat' || !combat) return [];
@@ -599,7 +778,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const buildingsPicture = useMemo(() => {
     if (!spritesReady) return null;
     return getBuildingsPicture(
-      buildingVisualKey + combatBuildingKey,
+      buildingVisualKey + combatBuildingKey + (movingBuildingId ?? ''),
       worldW,
       worldH,
       originX,
@@ -607,12 +786,24 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       buildingItems,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spritesReady, buildingVisualKey, combatBuildingKey, worldW, worldH, originX, originY]);
+  }, [spritesReady, buildingVisualKey, combatBuildingKey, movingBuildingId, worldW, worldH, originX, originY]);
 
   const previewCells = useMemo(() => {
-    if (!placing || !placementBuildingId || !hoverTile) return null;
-    const def = getBuildingDef(placementBuildingId);
-    const check = canPlace(state, placementBuildingId, hoverTile.x, hoverTile.y);
+    if (mode !== 'village' || !hoverTile) return null;
+    let buildingId: string | null = null;
+    let instanceId: string | null = null;
+    if (placing && placementBuildingId) {
+      buildingId = placementBuildingId;
+    } else if (relocating && movingBuildingId) {
+      instanceId = movingBuildingId;
+      const b = state.buildings.find((x) => x.instanceId === movingBuildingId);
+      buildingId = b?.buildingId ?? null;
+    }
+    if (!buildingId) return null;
+    const def = getBuildingDef(buildingId);
+    const check = instanceId
+      ? canMove(state, instanceId, hoverTile.x, hoverTile.y)
+      : canPlace(state, buildingId, hoverTile.x, hoverTile.y);
     const cells: { x: number; y: number }[] = [];
     for (let dy = 0; dy < def.footprint.h; dy++) {
       for (let dx = 0; dx < def.footprint.w; dx++) {
@@ -620,7 +811,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       }
     }
     return { valid: check.ok, cells };
-  }, [placing, placementBuildingId, hoverTile, state]);
+  }, [mode, placing, relocating, placementBuildingId, movingBuildingId, hoverTile, state]);
 
   if (width <= 0 || height <= 0) return null;
 
@@ -635,6 +826,9 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
               {combatUnits.length > 0 ? (
                 <UnitLayer units={combatUnits} originX={originX} originY={originY} />
               ) : null}
+              {movingGhostItem ? (
+                <BuildingGhost item={movingGhostItem} originX={originX} originY={originY} />
+              ) : null}
               {previewCells ? (
                 <PreviewOverlay
                   cells={previewCells.cells}
@@ -647,10 +841,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           </Canvas>
         </View>
       </GestureDetector>
-      {placing ? (
+      {holdRing ? <MoveHoldRing x={holdRing.x} y={holdRing.y} progress={holdProgress} /> : null}
+      {interacting ? (
         <View style={styles.placeBanner} pointerEvents="none">
           <Text style={styles.placeBannerText}>
-            Trascina · verde=ok · rosso=no · tocca per confermare
+            {relocating
+              ? 'Sposta · verde=ok · rosso=no · tocca per confermare'
+              : 'Trascina · verde=ok · rosso=no · tocca per confermare'}
           </Text>
         </View>
       ) : null}

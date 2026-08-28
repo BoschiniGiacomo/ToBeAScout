@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
-import { getEraDef } from '../sim/content';
+import { getBuildingDef, getEraDef } from '../sim/content';
 
 const SHOP_ICON = require('../../assets/ui/shop_button.png');
 const MISSIONS_ICON = require('../../assets/ui/missions_button.png');
@@ -14,8 +14,14 @@ type Props = {
 
 /** Clash-style bottom chrome: missions left, shop right. */
 export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
-  const { state, placementBuilding } = useGame();
+  const { state, placementBuilding, movingBuildingId } = useGame();
   const era = getEraDef(state.currentEra);
+  const interacting = !!(placementBuilding || movingBuildingId);
+  const movingDef = movingBuildingId
+    ? getBuildingDef(
+        state.buildings.find((b) => b.instanceId === movingBuildingId)?.buildingId ?? 'qg',
+      )
+    : null;
 
   return (
     <>
@@ -23,11 +29,16 @@ export function VillageChrome({ onOpenShop, onCancelPlace }: Props) {
         <Text style={styles.era}>{era.name}</Text>
       </View>
 
-      {placementBuilding ? (
+      {interacting ? (
         <View style={styles.cancelWrap} pointerEvents="box-none">
           <Pressable style={styles.cancelPlace} onPress={onCancelPlace}>
-            <Text style={styles.cancelPlaceText}>Annulla</Text>
+            <Text style={styles.cancelPlaceText}>
+              {movingBuildingId ? 'Annulla spostamento' : 'Annulla'}
+            </Text>
           </Pressable>
+          {movingDef ? (
+            <Text style={styles.moveHint}>Spostando: {movingDef.name}</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -114,4 +125,13 @@ const styles = StyleSheet.create({
     borderColor: '#FFE0B2',
   },
   cancelPlaceText: { color: '#FFE0B2', fontWeight: '800' },
+  moveHint: {
+    marginTop: 8,
+    color: '#FFF59D',
+    fontSize: 12,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 });

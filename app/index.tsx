@@ -13,7 +13,7 @@ import { IsometricWorld } from '../src/render/IsometricWorld';
 import { ResourceBarsHud } from '../src/ui/ResourceBarsHud';
 import { ShopSheet } from '../src/ui/ShopSheet';
 import { VillageChrome } from '../src/ui/VillageChrome';
-import { canPlace } from '../src/sim/buildings';
+import { canMove, canPlace } from '../src/sim/buildings';
 
 export default function VillageScreen() {
   const {
@@ -22,8 +22,12 @@ export default function VillageScreen() {
     message,
     clearMessage,
     place,
+    move,
     placementBuilding,
     setPlacementBuilding,
+    movingBuildingId,
+    setMovingBuildingId,
+    showMessage,
   } = useGame();
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const mapSizeLocked = useRef(false);
@@ -31,8 +35,8 @@ export default function VillageScreen() {
   const [shopOpen, setShopOpen] = useState(false);
 
   useEffect(() => {
-    if (!placementBuilding) setHoverTile(null);
-  }, [placementBuilding]);
+    if (!placementBuilding && !movingBuildingId) setHoverTile(null);
+  }, [placementBuilding, movingBuildingId]);
 
   useEffect(() => {
     if (!message) return;
@@ -71,6 +75,33 @@ export default function VillageScreen() {
     [placementBuilding, place, state],
   );
 
+  const onStartMoveBuilding = useCallback(
+    (instanceId: string, _gx: number, _gy: number) => {
+      const b = state.buildings.find((x) => x.instanceId === instanceId);
+      if (!b) return;
+      setMovingBuildingId(instanceId);
+      setHoverTile({ x: b.x, y: b.y });
+    },
+    [state.buildings, setMovingBuildingId],
+  );
+
+  const onConfirmMove = useCallback(
+    (gx: number, gy: number) => {
+      if (!movingBuildingId) return;
+      const check = canMove(state, movingBuildingId, gx, gy);
+      if (!check.ok) return;
+      move(movingBuildingId, gx, gy);
+      setHoverTile(null);
+    },
+    [movingBuildingId, move, state],
+  );
+
+  const onCancelInteract = useCallback(() => {
+    setPlacementBuilding(null);
+    setMovingBuildingId(null);
+    setHoverTile(null);
+  }, [setPlacementBuilding, setMovingBuildingId]);
+
   if (!ready) {
     return (
       <View style={styles.loading}>
@@ -89,20 +120,18 @@ export default function VillageScreen() {
             width={mapSize.width}
             height={mapSize.height}
             placementBuildingId={placementBuilding}
+            movingBuildingId={movingBuildingId}
             hoverTile={hoverTile}
             onSelectBuilding={onSelectBuilding}
             onHoverTile={onHoverTile}
             onConfirmPlace={onConfirmPlace}
+            onStartMoveBuilding={onStartMoveBuilding}
+            onConfirmMove={onConfirmMove}
+            onMoveHoldBlocked={showMessage}
           />
         ) : null}
         <ResourceBarsHud />
-        <VillageChrome
-          onOpenShop={() => setShopOpen(true)}
-          onCancelPlace={() => {
-            setPlacementBuilding(null);
-            setHoverTile(null);
-          }}
-        />
+        <VillageChrome onOpenShop={() => setShopOpen(true)} onCancelPlace={onCancelInteract} />
         {message ? (
           <View style={styles.toast}>
             <Text style={styles.toastText}>{message}</Text>

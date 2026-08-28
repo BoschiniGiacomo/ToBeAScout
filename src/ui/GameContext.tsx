@@ -10,7 +10,7 @@ import React, {
 import type { CombatState, GameState } from '../sim/types';
 import { loadGame, resetGame, saveGame } from '../save/storage';
 import { tick } from '../sim/tick';
-import { placeBuilding, startUpgrade, collectFromBuilding } from '../sim/buildings';
+import { placeBuilding, startUpgrade, collectFromBuilding, moveBuilding } from '../sim/buildings';
 import { enqueueTraining, troopStatsForPlayer } from '../sim/training';
 import { applyMissionResult, canStartMission } from '../sim/campaign';
 import {
@@ -28,6 +28,7 @@ interface GameContextValue {
   ready: boolean;
   message: string | null;
   clearMessage: () => void;
+  showMessage: (message: string) => void;
   place: (buildingId: string, x: number, y: number) => void;
   upgrade: (instanceId: string) => void;
   collect: (instanceId: string) => void;
@@ -42,6 +43,9 @@ interface GameContextValue {
   reset: () => Promise<void> | undefined;
   setPlacementBuilding: (id: string | null) => void;
   placementBuilding: string | null;
+  movingBuildingId: string | null;
+  setMovingBuildingId: (id: string | null) => void;
+  move: (instanceId: string, x: number, y: number) => void;
   selectedBuildingId: string | null;
   setSelectedBuildingId: (id: string | null) => void;
 }
@@ -52,7 +56,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GameState>(createInitialState);
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [placementBuilding, setPlacementBuilding] = useState<string | null>(null);
+  const [placementBuilding, setPlacementBuildingState] = useState<string | null>(null);
+  const [movingBuildingId, setMovingBuildingIdState] = useState<string | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [combat, setCombat] = useState<CombatState | null>(null);
   const combatRef = useRef<CombatState | null>(null);
@@ -129,6 +134,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearMessage = useCallback(() => setMessage(null), []);
+  const showMessage = useCallback((msg: string) => setMessage(msg), []);
+
+  const setPlacementBuilding = useCallback((id: string | null) => {
+    setPlacementBuildingState(id);
+    if (id) setMovingBuildingIdState(null);
+  }, []);
+
+  const setMovingBuildingId = useCallback((id: string | null) => {
+    setMovingBuildingIdState(id);
+    if (id) setPlacementBuildingState(null);
+  }, []);
 
   const place = useCallback(
     safeAction('placeBuilding', (buildingId: string, x: number, y: number) => {
@@ -140,6 +156,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       persist(result.state);
       setPlacementBuilding(null);
       setMessage(`${buildingId} in costruzione`);
+    }),
+    [persist],
+  );
+
+  const move = useCallback(
+    safeAction('moveBuilding', (instanceId: string, x: number, y: number) => {
+      const result = moveBuilding(tick(stateRef.current), instanceId, x, y);
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+      persist(result.state);
+      setMovingBuildingIdState(null);
+      setMessage('Edificio spostato');
     }),
     [persist],
   );
@@ -265,6 +295,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ready,
       message,
       clearMessage,
+      showMessage,
       place,
       upgrade,
       collect,
@@ -279,6 +310,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       reset,
       setPlacementBuilding,
       placementBuilding,
+      movingBuildingId,
+      setMovingBuildingId,
+      move,
       selectedBuildingId,
       setSelectedBuildingId,
     }),
@@ -287,6 +321,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ready,
       message,
       clearMessage,
+      showMessage,
       place,
       upgrade,
       collect,
@@ -300,6 +335,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       finishCombat,
       reset,
       placementBuilding,
+      movingBuildingId,
+      move,
       selectedBuildingId,
     ],
   );

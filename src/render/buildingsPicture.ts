@@ -1,5 +1,5 @@
 import { Skia, type SkPicture } from '@shopify/react-native-skia';
-import { footprintGroundBounds } from '../sim/iso';
+import { TILE_H, TILE_W, footprintSouthTipScreen } from '../sim/iso';
 import { getSkiaImage } from './spriteCache';
 
 export type PictureDrawItem = {
@@ -13,41 +13,37 @@ export type PictureDrawItem = {
   anchorY: number;
 };
 
-/** Bottom fraction of PNG where grass/base pad lives (128×128 building exports). */
-const GROUND_PAD_FRACTION = 0.34;
-/** Slight horizontal bleed so tile edges stay covered. */
-const WIDTH_COVER = 1.04;
-/** Fine-tune after ground-box anchor (+ = forward). */
-const DEPTH_NUDGE_Y = 2;
+/** Fine-tune anchor on footprint south tip (+ = forward, − = back). */
+const DEPTH_NUDGE_Y = 3;
+
+/** Layout rect for a building draw item (shared by picture + live ghost). */
+export function layoutDrawItem(item: PictureDrawItem) {
+  return layoutSprite(item);
+}
 
 function layoutSprite(item: PictureDrawItem) {
-  const ground = footprintGroundBounds(item.x, item.y, item.w, item.h);
-  const ax = item.anchorX;
-  const ay = item.anchorY;
+  const tip = footprintSouthTipScreen(item.x, item.y, item.w, item.h);
+  const footprintW = (item.w + item.h) * (TILE_W / 2);
+  let bw = Math.max(TILE_W * 0.8, footprintW);
+  let bh: number;
 
   if (item.sprite) {
     const img = getSkiaImage(item.sprite);
-    const bw = ground.width * WIDTH_COVER;
     if (img && img.width() > 0) {
-      const aspect = img.height() / img.width();
-      const padH = Math.max(ground.height, ground.width * 0.22);
-      const bhFromPad = padH / GROUND_PAD_FRACTION;
-      const bhFromAspect = bw * aspect;
-      const bh = Math.max(bhFromPad, bhFromAspect * 0.92);
-      return {
-        left: ground.centerX - bw * ax,
-        top: ground.southY - bh * ay + DEPTH_NUDGE_Y,
-        bw,
-        bh,
-      };
+      bh = bw * (img.height() / img.width());
+    } else {
+      bh = Math.max(TILE_H * 1.8, bw * 0.9);
     }
+  } else {
+    bw = Math.max(36, footprintW * 0.85);
+    bh = Math.max(TILE_H, item.h * TILE_H * 0.9);
   }
 
-  const bw = Math.max(36, ground.width * 0.9);
-  const bh = Math.max(24, ground.height * 1.1);
+  const ax = item.anchorX;
+  const ay = item.anchorY;
   return {
-    left: ground.centerX - bw * ax,
-    top: ground.southY - bh * ay + DEPTH_NUDGE_Y,
+    left: tip.x - bw * ax,
+    top: tip.y - bh * ay + DEPTH_NUDGE_Y,
     bw,
     bh,
   };
@@ -87,7 +83,6 @@ export function recordBuildingsPicture(
 
 let cachedKey = '';
 let cachedPicture: SkPicture | null = null;
-const LAYOUT_REV = 'ground-box-v1';
 
 /** Cached buildings layer — avoids dispose/recreate flicker on unchanged layout. */
 export function getBuildingsPicture(
@@ -98,11 +93,10 @@ export function getBuildingsPicture(
   originY: number,
   items: PictureDrawItem[],
 ): SkPicture {
-  const fullKey = `${LAYOUT_REV}:${key}`;
-  if (fullKey === cachedKey && cachedPicture) return cachedPicture;
+  if (key === cachedKey && cachedPicture) return cachedPicture;
   cachedPicture?.dispose?.();
   cachedPicture = recordBuildingsPicture(worldW, worldH, originX, originY, items);
-  cachedKey = fullKey;
+  cachedKey = key;
   return cachedPicture;
 }
 

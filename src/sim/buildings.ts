@@ -55,6 +55,56 @@ export function canPlace(
   return { ok: true };
 }
 
+export function canMove(
+  state: GameState,
+  instanceId: string,
+  x: number,
+  y: number,
+): { ok: true } | { ok: false; reason: string } {
+  const building = state.buildings.find((b) => b.instanceId === instanceId);
+  if (!building) return { ok: false, reason: 'Edificio non trovato' };
+  const def = getBuildingDef(building.buildingId);
+  const { w, h } = def.footprint;
+  if (x < 0 || y < 0 || x + w > META.gridSize || y + h > META.gridSize) {
+    return { ok: false, reason: 'Fuori mappa' };
+  }
+  if (isOccupied(state, x, y, w, h, instanceId)) return { ok: false, reason: 'Occupato' };
+  return { ok: true };
+}
+
+export function canStartMove(
+  state: GameState,
+  instanceId: string,
+  now = Date.now(),
+): { ok: true } | { ok: false; reason: string } {
+  const building = state.buildings.find((b) => b.instanceId === instanceId);
+  if (!building) return { ok: false, reason: 'Edificio non trovato' };
+  if (building.buildEndsAt && building.buildEndsAt > now) {
+    return { ok: false, reason: 'Costruzione in corso' };
+  }
+  return { ok: true };
+}
+
+export function moveBuilding(
+  state: GameState,
+  instanceId: string,
+  x: number,
+  y: number,
+): { state: GameState; error?: string } {
+  const moveCheck = canMove(state, instanceId, x, y);
+  if (!moveCheck.ok) return { state, error: moveCheck.reason };
+  const building = state.buildings.find((b) => b.instanceId === instanceId)!;
+  if (building.x === x && building.y === y) return { state };
+  return {
+    state: {
+      ...state,
+      buildings: state.buildings.map((b) =>
+        b.instanceId === instanceId ? { ...b, x, y } : b,
+      ),
+    },
+  };
+}
+
 export function placeBuilding(
   state: GameState,
   buildingId: string,
