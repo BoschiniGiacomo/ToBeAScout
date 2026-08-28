@@ -63,7 +63,7 @@ function CostRow({ cost }: { cost: Resources }) {
 
 /** Clash-of-Clans style shop modal. */
 export function ShopSheet({ visible, onClose }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const { state, placementBuilding, setPlacementBuilding, train, upgradeTroop, setSelectedBuildingId, buyPack } =
     useGame();
   const [tab, setTab] = useState<ShopTab>('edifici');
@@ -75,9 +75,7 @@ export function ShopSheet({ visible, onClose }: Props) {
   );
   const unlockedTroops = TROOPS.filter((t) => isTroopUnlocked(state, t.id));
 
-  const panelW = Math.min(width * 0.92, 720);
-  const panelH = Math.min(height * 0.88, 420);
-  const cardW = Math.max(132, Math.min(160, panelW * 0.22));
+  const cardW = Math.max(128, Math.min(156, width * 0.26));
 
   const pickBuilding = (id: string) => {
     setSelectedBuildingId(null);
@@ -87,9 +85,7 @@ export function ShopSheet({ visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.panel, { width: panelW, height: panelH }]}>
+      <View style={styles.panel}>
           {/* Tab strip */}
           <View style={styles.tabStrip}>
             <View style={styles.tabsRow}>
@@ -301,39 +297,28 @@ export function ShopSheet({ visible, onClose }: Props) {
             </View>
           </View>
         </View>
-      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-  },
   panel: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#5D4037',
+    flex: 1,
     backgroundColor: '#2A2A2A',
-    zIndex: 2,
   },
   tabStrip: {
     backgroundColor: '#E8DCC8',
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    minHeight: 88,
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 0,
+    minHeight: 54,
   },
   tabsRow: {
     flex: 1,
     flexDirection: 'row',
-    gap: 10,
+    gap: 6,
     alignItems: 'flex-end',
   },
   tab: {
@@ -360,58 +345,58 @@ const styles = StyleSheet.create({
   tabLabelOn: { color: '#FFF8E1' },
   tabImgBtn: {
     marginBottom: 0,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    borderWidth: 3,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    borderWidth: 2,
     borderColor: '#A89070',
     backgroundColor: 'rgba(0,0,0,0.12)',
-    padding: 3,
+    padding: 1,
     opacity: 0.82,
-    transform: [{ translateY: 6 }],
+    transform: [{ translateY: 4 }],
   },
   tabImgActive: {
     borderColor: '#F9A825',
-    borderWidth: 4,
+    borderWidth: 3,
     backgroundColor: '#3A3A3A',
     opacity: 1,
-    transform: [{ translateY: 0 }, { scale: 1.08 }],
+    transform: [{ translateY: 0 }, { scale: 1.03 }],
     shadowColor: '#F9A825',
-    shadowOpacity: 0.55,
-    shadowRadius: 8,
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
+    elevation: 8,
   },
   tabImg: {
-    width: 78,
-    height: 78,
+    width: 86,
+    height: 86,
   },
   closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 7,
     backgroundColor: '#E53935',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
-    marginBottom: 10,
+    marginLeft: 6,
+    marginBottom: 6,
     borderWidth: 2,
     borderColor: '#B71C1C',
   },
-  closeX: { color: '#FFF', fontWeight: '900', fontSize: 18 },
+  closeX: { color: '#FFF', fontWeight: '900', fontSize: 16 },
   body: {
     flex: 1,
     backgroundColor: '#2F2F2F',
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 4,
+    paddingBottom: 2,
   },
   shopTitle: {
     textAlign: 'center',
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    marginBottom: 8,
+    marginBottom: 4,
     textShadowColor: '#000',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 0,
@@ -420,9 +405,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardsRow: {
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+    gap: 10,
     alignItems: 'stretch',
     flexGrow: 1,
   },
@@ -458,11 +443,11 @@ const styles = StyleSheet.create({
   cardName: {
     color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 5,
+    paddingTop: 6,
+    paddingBottom: 2,
     flexShrink: 0,
     textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 1 },
@@ -476,7 +461,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     overflow: 'hidden',
   },
-  cardSprite: { width: 88, height: 88 },
+  cardSprite: { width: '92%', height: '92%', maxWidth: 110, maxHeight: 110 },
   cardFallback: {
     width: 64,
     height: 64,
@@ -496,7 +481,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   housingPillText: { color: '#E3F2FD', fontSize: 9, fontWeight: '700' },
-  upgradeHint: { color: '#A5D6A7', fontSize: 10, fontWeight: '700' },
+  upgradeHint: { color: '#A5D6A7', fontSize: 9, fontWeight: '700' },
   troopBadge: {
     width: 72,
     height: 72,
@@ -511,17 +496,17 @@ const styles = StyleSheet.create({
   troopBadgeSub: { color: '#E3F2FD', fontSize: 10, fontWeight: '700' },
   cardFooter: {
     flexShrink: 0,
-    minHeight: 44,
+    minHeight: 28,
     backgroundColor: 'rgba(20,20,20,0.85)',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.25)',
   },
-  trainMeta: { color: '#FFE082', fontSize: 11, fontWeight: '700' },
+  trainMeta: { color: '#FFE082', fontSize: 10, fontWeight: '700' },
   costRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -532,12 +517,12 @@ const styles = StyleSheet.create({
   costNum: {
     color: '#FFF',
     fontWeight: '900',
-    fontSize: 12,
+    fontSize: 11,
     textShadowColor: '#000',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
-  costIcon: { width: 16, height: 16 },
+  costIcon: { width: 14, height: 14 },
   empty: {
     color: '#FFF59D',
     fontWeight: '700',
@@ -546,8 +531,8 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     backgroundColor: '#7A8F3A',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
