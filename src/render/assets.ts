@@ -41,7 +41,9 @@ const SPRITES: Record<string, number> = {
   building_sopraelevata_2: require('../../assets/buildings/sopraelevata_lvl1.png'),
   building_sopraelevata_3: require('../../assets/buildings/sopraelevata_lvl1.png'),
   troop_maestro_giochi: require('../../assets/troops/maestro_giochi.png'),
-  troop_falegname: require('../../assets/troops/falegname.png'),
+  troop_falegname: require('../../assets/troops/falegname_lvl1.png'),
+  troop_falegname_1: require('../../assets/troops/falegname_lvl1.png'),
+  troop_falegname_2: require('../../assets/troops/falegname_lvl2.png'),
 };
 
 export function resolveTileSprite(_id: string = 'tile_grass_empty'): number | null {
@@ -52,8 +54,8 @@ export function resolveBuildingSprite(spriteKey: string, level: number): number 
   return SPRITES[`${spriteKey}_${level}`] ?? SPRITES[spriteKey] ?? null;
 }
 
-export function resolveTroopSprite(spriteKey: string): number | null {
-  return SPRITES[spriteKey] ?? null;
+export function resolveTroopSprite(spriteKey: string, level = 1): number | null {
+  return SPRITES[`${spriteKey}_${level}`] ?? SPRITES[spriteKey] ?? null;
 }
 
 export function listRegisteredSprites(): string[] {

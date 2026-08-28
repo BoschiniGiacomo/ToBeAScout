@@ -5,7 +5,7 @@ import type {
   CombatUnit,
   MissionDef,
 } from './types';
-import { getBuildingDef, getBuildingLevel, getMissionDef, getTroopDef } from './content';
+import { getBuildingDef, getBuildingLevel, getMissionDef, getTroopDef, getTroopLevel } from './content';
 import { nextId } from './economy';
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
@@ -16,7 +16,11 @@ function buildingCenter(b: CombatBuilding): { x: number; y: number } {
   return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
 }
 
-export function createCombatState(missionId: string, army: ArmyUnit[]): CombatState {
+export function createCombatState(
+  missionId: string,
+  army: ArmyUnit[],
+  troopLevels: Record<string, number>,
+): CombatState {
   const mission = getMissionDef(missionId);
   const buildings: CombatBuilding[] = mission.enemyLayout.map((p, i) => {
     const def = getBuildingDef(p.buildingId);
@@ -42,6 +46,7 @@ export function createCombatState(missionId: string, army: ArmyUnit[]): CombatSt
     buildings,
     units: [],
     deployRemaining: army.map((u) => ({ ...u })),
+    troopLevels: { ...troopLevels },
     timeLeft: 180,
     destroyPct: 0,
     stars: 0,
@@ -95,13 +100,15 @@ export function deployTroop(
   if (x < 0 || y < 0 || x >= combat.mapSize || y >= combat.mapSize) return combat;
 
   const def = getTroopDef(troopId);
+  const level = combat.troopLevels[troopId] ?? 1;
+  const stats = getTroopLevel(def, level);
   const unit: CombatUnit = {
     id: nextId('u'),
     troopId,
     x,
     y,
-    hp: def.hp,
-    maxHp: def.hp,
+    hp: stats.hp,
+    maxHp: stats.hp,
     targetId: null,
     cooldown: 0,
   };
@@ -141,6 +148,8 @@ export function stepCombat(combat: CombatState, dt: number): CombatState {
   for (const unit of units) {
     if (unit.hp <= 0) continue;
     const troop = getTroopDef(unit.troopId);
+    const level = combat.troopLevels[unit.troopId] ?? 1;
+    const stats = getTroopLevel(troop, level);
     let target = buildings.find((b) => b.instanceId === unit.targetId && !b.destroyed);
     if (!target) {
       target = nearestTarget(unit.x, unit.y, unit.troopId, buildings) ?? undefined;
@@ -160,7 +169,7 @@ export function stepCombat(combat: CombatState, dt: number): CombatState {
     } else {
       unit.cooldown -= dt;
       if (unit.cooldown <= 0) {
-        if (troop.heal && troop.heal > 0) {
+        if (stats.heal && stats.heal > 0) {
           // Heal nearest ally
           let ally: CombatUnit | null = null;
           let best = Infinity;
@@ -172,10 +181,10 @@ export function stepCombat(combat: CombatState, dt: number): CombatState {
               ally = o;
             }
           }
-          if (ally) ally.hp = Math.min(ally.maxHp, ally.hp + troop.heal);
-          else target.hp -= troop.damage;
+          if (ally) ally.hp = Math.min(ally.maxHp, ally.hp + stats.heal);
+          else target.hp -= stats.damage;
         } else {
-          target.hp -= troop.damage;
+          target.hp -= stats.damage;
         }
         unit.cooldown = 1;
         if (target.hp <= 0) {

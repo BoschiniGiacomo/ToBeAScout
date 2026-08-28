@@ -12,8 +12,10 @@ import {
 import { useGame } from './GameContext';
 import { BUILDINGS, TROOPS } from '../sim/content';
 import { isBuildingUnlocked } from '../sim/buildings';
-import { armyCampCapacity, armyHousingUsed, isTroopUnlocked } from '../sim/training';
+import { armyCampCapacity, armyHousingUsed, isTroopUnlocked, troopStatsForPlayer } from '../sim/training';
 import { formatResourceAmount, freeBuilderSlots, RESOURCE_PACKS } from '../sim/economy';
+import { getTroopLevel } from '../sim/content';
+import { canUpgradeTroop, getPlayerTroopLevel } from '../sim/troopUpgrades';
 import { resolveBuildingSprite, resolveTroopSprite } from '../render/assets';
 import type { Resources } from '../sim/types';
 
@@ -62,7 +64,7 @@ function CostRow({ cost }: { cost: Resources }) {
 /** Clash-of-Clans style shop modal. */
 export function ShopSheet({ visible, onClose }: Props) {
   const { width, height } = useWindowDimensions();
-  const { state, placementBuilding, setPlacementBuilding, train, setSelectedBuildingId, buyPack } =
+  const { state, placementBuilding, setPlacementBuilding, train, upgradeTroop, setSelectedBuildingId, buyPack } =
     useGame();
   const [tab, setTab] = useState<ShopTab>('edifici');
   const builders = freeBuilderSlots(state, Date.now());
@@ -175,32 +177,44 @@ export function ShopSheet({ visible, onClose }: Props) {
                   <Text style={styles.empty}>Nessuna truppa sbloccata</Text>
                 ) : (
                   unlockedTroops.map((t) => {
-                    const sprite = resolveTroopSprite(t.spriteKey);
+                    const level = getPlayerTroopLevel(state, t.id);
+                    const stats = troopStatsForPlayer(state, t.id);
+                    const sprite = resolveTroopSprite(t.spriteKey, level);
+                    const upgradeCheck = canUpgradeTroop(state, t.id);
+                    const nextLevel =
+                      level < t.maxLevel ? getTroopLevel(t, level + 1) : null;
+                    const upgrading =
+                      state.troopUpgrade?.troopId === t.id ? state.troopUpgrade : null;
                     return (
-                    <Pressable
-                      key={t.id}
-                      style={[styles.card, { width: cardW }]}
-                      onPress={() => train(t.id)}
-                    >
-                      <Text style={styles.cardName} numberOfLines={2}>
-                        {t.name}
-                      </Text>
-                      <View style={styles.cardArt}>
-                        {sprite ? (
-                          <Image source={sprite} style={styles.cardSprite} resizeMode="contain" />
-                        ) : (
-                          <View style={[styles.cardFallback, { backgroundColor: t.color }]} />
-                        )}
-                        <View style={styles.troopBadge}>
-                          <Text style={styles.troopBadgeText}>{t.housing}</Text>
-                          <Text style={styles.troopBadgeSub}>posti</Text>
+                      <Pressable
+                        key={t.id}
+                        style={[styles.card, { width: cardW }]}
+                        onPress={() => train(t.id)}
+                        onLongPress={() => upgradeTroop(t.id)}
+                      >
+                        <Text style={styles.cardName} numberOfLines={2}>
+                          {t.name} · Lv.{level}
+                        </Text>
+                        <View style={styles.cardArt}>
+                          {sprite ? (
+                            <Image source={sprite} style={styles.cardSprite} resizeMode="contain" />
+                          ) : (
+                            <View style={[styles.cardFallback, { backgroundColor: t.color }]} />
+                          )}
+                          <View style={styles.housingPill}>
+                            <Text style={styles.housingPillText}>{t.housing} posti</Text>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.cardFooter}>
-                        <Text style={styles.trainMeta}>{t.trainTimeSec}s</Text>
-                        <CostRow cost={t.trainCost} />
-                      </View>
-                    </Pressable>
+                        <View style={styles.cardFooter}>
+                          {upgrading ? (
+                            <Text style={styles.trainMeta}>Upgrade in corso…</Text>
+                          ) : upgradeCheck.ok && nextLevel?.upgradeCost ? (
+                            <Text style={styles.upgradeHint}>Tieni premuto → Lv.{level + 1}</Text>
+                          ) : null}
+                          <Text style={styles.trainMeta}>{stats.trainTimeSec}s</Text>
+                          <CostRow cost={stats.trainCost} />
+                        </View>
+                      </Pressable>
                     );
                   })
                 )}
@@ -470,6 +484,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
   },
+  housingPill: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  housingPillText: { color: '#E3F2FD', fontSize: 9, fontWeight: '700' },
+  upgradeHint: { color: '#A5D6A7', fontSize: 10, fontWeight: '700' },
   troopBadge: {
     width: 72,
     height: 72,

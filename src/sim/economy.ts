@@ -144,6 +144,8 @@ export function createInitialState(now = Date.now()): GameState {
       make('tenda_squadriglia', 10, 11),
     ],
     trainingQueue: [],
+    troopLevels: {},
+    troopUpgrade: null,
     army: [],
     currentEra: 'lupetti',
     unlockedEras: ['lupetti'],

@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
 import { BUILDINGS, ERAS, TROOPS, getBuildingDef, getEraDef } from '../sim/content';
 import { isBuildingUnlocked } from '../sim/buildings';
-import { armyCampCapacity, armyHousingUsed, isTroopUnlocked } from '../sim/training';
+import { armyCampCapacity, armyHousingUsed, isTroopUnlocked, troopStatsForPlayer } from '../sim/training';
+import { getPlayerTroopLevel } from '../sim/troopUpgrades';
 import { freeBuilderSlots } from '../sim/economy';
 import type { PlacedBuildingExt } from '../sim/buildings';
 
@@ -105,14 +106,20 @@ export function TrainPanel() {
         Addestra · esercito {used}/{cap}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {unlocked.map((t) => (
+        {unlocked.map((t) => {
+          const stats = troopStatsForPlayer(state, t.id);
+          const level = getPlayerTroopLevel(state, t.id);
+          return (
           <Pressable key={t.id} style={styles.chip} onPress={() => train(t.id)}>
-            <Text style={styles.chipTitle}>{t.name}</Text>
+            <Text style={styles.chipTitle}>
+              {t.name} · Lv.{level}
+            </Text>
             <Text style={styles.chipSub}>
-              {t.trainCost.legna}L · {t.housing} posti · {t.trainTimeSec}s
+              {stats.trainCost.legna}L · {t.housing} posti · {stats.trainTimeSec}s
             </Text>
           </Pressable>
-        ))}
+          );
+        })}
       </ScrollView>
       <ScrollView horizontal style={{ marginTop: 6 }}>
         {state.army.map((u) => {

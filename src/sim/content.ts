@@ -40,3 +40,9 @@ export function getBuildingLevel(def: BuildingDef, level: number) {
   if (!lvl) throw new Error(`Missing level ${level} for ${def.id}`);
   return lvl;
 }
+
+export function getTroopLevel(def: TroopDef, level: number) {
+  const lvl = def.levels.find((l) => l.level === level);
+  if (!lvl) throw new Error(`Missing troop level ${level} for ${def.id}`);
+  return lvl;
+}

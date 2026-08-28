@@ -1,6 +1,15 @@
-import type { ArmyUnit, GameState, TrainingJob } from './types';
-import { ERAS, getBuildingDef, getBuildingLevel, getTroopDef } from './content';
+import type { ArmyUnit, GameState, TrainingJob, TroopLevelDef } from './types';
+import { ERAS, getBuildingDef, getBuildingLevel, getTroopDef, getTroopLevel } from './content';
 import { canAfford, spend } from './economy';
+import { getPlayerTroopLevel } from './troopUpgrades';
+
+export function troopStatsAtLevel(troopId: string, level: number): TroopLevelDef {
+  return getTroopLevel(getTroopDef(troopId), level);
+}
+
+export function troopStatsForPlayer(state: GameState, troopId: string): TroopLevelDef {
+  return troopStatsAtLevel(troopId, getPlayerTroopLevel(state, troopId));
+}
 
 export function isTroopUnlocked(state: GameState, troopId: string): boolean {
   for (const eraId of state.unlockedEras) {
@@ -77,6 +86,8 @@ export function enqueueTraining(
     return { state, error: 'Specialità non sbloccata' };
   }
   const troop = getTroopDef(troopId);
+  const level = getPlayerTroopLevel(state, troopId);
+  const stats = getTroopLevel(troop, level);
   const barracksId = findBarracksForTroop(state, troopId, now);
   if (!barracksId) {
     return { state, error: `Serve ${troop.barracks} attiva` };
@@ -91,7 +102,7 @@ export function enqueueTraining(
   if (used + queuedHousing + troop.housing > cap) {
     return { state, error: 'Tende di squadriglia piene' };
   }
-  if (!canAfford(state.resources, troop.trainCost)) {
+  if (!canAfford(state.resources, stats.trainCost)) {
     return { state, error: 'Risorse insufficienti' };
   }
 
@@ -100,14 +111,15 @@ export function enqueueTraining(
   const start = Math.max(now, lastEnd);
   const job: TrainingJob = {
     troopId,
-    endsAt: start + troop.trainTimeSec * 1000,
+    level,
+    endsAt: start + stats.trainTimeSec * 1000,
     barracksInstanceId: barracksId,
   };
 
   return {
     state: {
       ...state,
-      resources: spend(state.resources, troop.trainCost),
+      resources: spend(state.resources, stats.trainCost),
       trainingQueue: [...state.trainingQueue, job],
     },
   };

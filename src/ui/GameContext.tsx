@@ -11,7 +11,7 @@ import type { CombatState, GameState } from '../sim/types';
 import { loadGame, resetGame, saveGame } from '../save/storage';
 import { tick } from '../sim/tick';
 import { placeBuilding, startUpgrade, collectFromBuilding } from '../sim/buildings';
-import { enqueueTraining } from '../sim/training';
+import { enqueueTraining, troopStatsForPlayer } from '../sim/training';
 import { applyMissionResult, canStartMission } from '../sim/campaign';
 import {
   autoDeployAll,
@@ -20,6 +20,7 @@ import {
   stepCombat,
 } from '../sim/combat';
 import { createInitialState, buyResourcePack, type ResourcePackId } from '../sim/economy';
+import { startTroopUpgrade } from '../sim/troopUpgrades';
 import { logCrash, safeAction } from '../debug/crashLog';
 
 interface GameContextValue {
@@ -31,6 +32,7 @@ interface GameContextValue {
   upgrade: (instanceId: string) => void;
   collect: (instanceId: string) => void;
   train: (troopId: string) => void;
+  upgradeTroop: (troopId: string) => void;
   buyPack: (packId: ResourcePackId) => void;
   startMission: (missionId: string) => CombatState | null | undefined;
   combat: CombatState | null;
@@ -175,6 +177,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const upgradeTroop = useCallback(
+    safeAction('upgradeTroop', (troopId: string) => {
+      const result = startTroopUpgrade(tick(stateRef.current), troopId);
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+      persist(result.state);
+      setMessage('Upgrade truppa avviato');
+    }),
+    [persist],
+  );
+
   const buyPack = useCallback(
     safeAction('buyResourcePack', (packId: ResourcePackId) => {
       const result = buyResourcePack(tick(stateRef.current), packId);
@@ -195,7 +210,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setMessage(check.reason);
         return null;
       }
-      const c = createCombatState(missionId, stateRef.current.army);
+      const c = createCombatState(missionId, stateRef.current.army, stateRef.current.troopLevels);
       setCombat(c);
       return c;
     }),
@@ -254,6 +269,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       upgrade,
       collect,
       train,
+      upgradeTroop,
       buyPack,
       startMission,
       combat,
@@ -275,6 +291,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       upgrade,
       collect,
       train,
+      upgradeTroop,
       buyPack,
       startMission,
       combat,

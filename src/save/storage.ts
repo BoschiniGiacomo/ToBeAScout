@@ -15,6 +15,11 @@ export async function loadGame(): Promise<GameState> {
     for (const b of parsed.buildings ?? []) {
       if (b.buildingId === 'palisata') b.buildingId = 'sopraelevata';
     }
+    if (!parsed.troopLevels) parsed.troopLevels = {};
+    if (parsed.troopUpgrade === undefined) parsed.troopUpgrade = null;
+    for (const job of parsed.trainingQueue ?? []) {
+      if (job.level === undefined) job.level = parsed.troopLevels[job.troopId] ?? 1;
+    }
     return tick(parsed, Date.now());
   } catch {
     return createInitialState();

@@ -7,7 +7,7 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 | Type | Path pattern |
 |------|----------------|
 | Building | `assets/buildings/{buildingId}_lvl{level}.png` |
-| Troop | `assets/troops/{troopId}.png` |
+| Troop | `assets/troops/{troopId}_lvl{level}.png` (or `{troopId}.png` for single-level) |
 
 - `assets/buildings/qg_lvl1.png` ✅ (footprint 3×3)
 - `assets/buildings/pozzo_lvl1.png` ✅
@@ -19,7 +19,8 @@ Pre-rendered 3D buildings and troop sprites plug in **without changing simulatio
 - `assets/ui/app_logo.png` ✅ in-game logo
 - `assets/tiles/grass_empty.png` (asset on disk; runtime ground uses light Views)
 - `assets/troops/maestro_giochi.png` ✅
-- `assets/troops/falegname.png` ✅
+- `assets/troops/falegname_lvl1.png` ✅
+- `assets/troops/falegname_lvl2.png` ✅
 
 `buildingId` / `troopId` must match `src/content/buildings.json` and `troops.json`.
 

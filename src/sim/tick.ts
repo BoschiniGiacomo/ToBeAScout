@@ -1,16 +1,20 @@
 import type { GameState } from './types';
 import { applyCompletedConstruction, produceResources } from './buildings';
 import { completeTraining } from './training';
+import { completeTroopUpgrades } from './troopUpgrades';
 
 /** Advance offline timers: builds, production, training. */
 export function tick(state: GameState, now = Date.now()): GameState {
   const afterBuild = applyCompletedConstruction(state, now);
   const afterTrain = completeTraining(afterBuild, now);
-  const afterProd = produceResources(afterTrain, now);
+  const afterTroopUp = completeTroopUpgrades(afterTrain, now);
+  const afterProd = produceResources(afterTroopUp, now);
 
   const sameGameplay =
     afterProd.buildings === state.buildings &&
     afterProd.trainingQueue === state.trainingQueue &&
+    afterProd.troopUpgrade === state.troopUpgrade &&
+    afterProd.troopLevels === state.troopLevels &&
     afterProd.army === state.army &&
     afterProd.resources === state.resources &&
     afterProd.currentEra === state.currentEra &&

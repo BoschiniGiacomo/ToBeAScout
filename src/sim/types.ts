@@ -58,15 +58,23 @@ export interface BuildingDef {
   levels: BuildingLevelDef[];
 }
 
+export interface TroopLevelDef {
+  level: number;
+  hp: number;
+  damage: number;
+  heal?: number;
+  trainCost: Resources;
+  trainTimeSec: number;
+  unlockEra: EraId;
+  /** Cost to upgrade from previous level to this one */
+  upgradeCost?: Resources;
+  upgradeTimeSec?: number;
+}
+
 export interface TroopDef {
   id: string;
   name: string;
   housing: number;
-  trainCost: Resources;
-  trainTimeSec: number;
-  hp: number;
-  damage: number;
-  heal?: number;
   speed: number;
   range: number;
   prefer: 'any' | 'resource' | 'defense' | 'wall';
@@ -77,6 +85,8 @@ export interface TroopDef {
   anchor: Anchor;
   footprint: Footprint;
   brevettoOf?: string;
+  maxLevel: number;
+  levels: TroopLevelDef[];
 }
 
 export interface EraDef {
@@ -129,8 +139,15 @@ export interface PlacedBuilding {
 
 export interface TrainingJob {
   troopId: string;
+  level: number;
   endsAt: number;
   barracksInstanceId: string;
+}
+
+export interface TroopUpgradeJob {
+  troopId: string;
+  targetLevel: number;
+  endsAt: number;
 }
 
 export interface ArmyUnit {
@@ -149,6 +166,8 @@ export interface GameState {
   resources: Resources;
   buildings: PlacedBuilding[];
   trainingQueue: TrainingJob[];
+  troopLevels: Record<string, number>;
+  troopUpgrade: TroopUpgradeJob | null;
   army: ArmyUnit[];
   currentEra: EraId;
   unlockedEras: EraId[];
@@ -189,6 +208,7 @@ export interface CombatState {
   buildings: CombatBuilding[];
   units: CombatUnit[];
   deployRemaining: ArmyUnit[];
+  troopLevels: Record<string, number>;
   timeLeft: number;
   destroyPct: number;
   stars: number;

@@ -3,10 +3,6 @@
     "id": "maestro_giochi",
     "name": "Maestro dei Giochi",
     "housing": 1,
-    "trainCost": { "legna": 20, "acqua": 40, "impegno": 0 },
-    "trainTimeSec": 8,
-    "hp": 45,
-    "damage": 8,
     "speed": 2.2,
     "range": 1.2,
     "prefer": "any",
@@ -14,17 +10,34 @@
     "barracks": "tenda_specialita",
     "color": "#FF7043",
     "spriteKey": "troop_maestro_giochi",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 45,
+        "damage": 8,
+        "trainCost": {
+          "legna": 20,
+          "acqua": 40,
+          "impegno": 0
+        },
+        "trainTimeSec": 8,
+        "unlockEra": "lupetti"
+      }
+    ]
   },
   {
     "id": "campeggiatore",
     "name": "Campeggiatore",
     "housing": 2,
-    "trainCost": { "legna": 50, "acqua": 30, "impegno": 0 },
-    "trainTimeSec": 12,
-    "hp": 80,
-    "damage": 12,
     "speed": 1.6,
     "range": 1.1,
     "prefer": "resource",
@@ -32,17 +45,34 @@
     "barracks": "tenda_specialita",
     "color": "#8D6E63",
     "spriteKey": "troop_campeggiatore",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 80,
+        "damage": 12,
+        "trainCost": {
+          "legna": 50,
+          "acqua": 30,
+          "impegno": 0
+        },
+        "trainTimeSec": 12,
+        "unlockEra": "lupetti"
+      }
+    ]
   },
   {
     "id": "falegname",
     "name": "Falegname",
     "housing": 3,
-    "trainCost": { "legna": 80, "acqua": 40, "impegno": 0 },
-    "trainTimeSec": 20,
-    "hp": 120,
-    "damage": 22,
     "speed": 1.4,
     "range": 1.1,
     "prefer": "defense",
@@ -50,17 +80,52 @@
     "barracks": "tenda_specialita",
     "color": "#A1887F",
     "spriteKey": "troop_falegname",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 2,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 95,
+        "damage": 17,
+        "trainCost": {
+          "legna": 60,
+          "acqua": 30,
+          "impegno": 0
+        },
+        "trainTimeSec": 16,
+        "unlockEra": "reparto"
+      },
+      {
+        "level": 2,
+        "hp": 120,
+        "damage": 22,
+        "trainCost": {
+          "legna": 80,
+          "acqua": 40,
+          "impegno": 0
+        },
+        "trainTimeSec": 20,
+        "upgradeCost": {
+          "legna": 400,
+          "acqua": 200,
+          "impegno": 0
+        },
+        "upgradeTimeSec": 120,
+        "unlockEra": "reparto"
+      }
+    ]
   },
   {
     "id": "cuoco",
     "name": "Cuoco",
     "housing": 2,
-    "trainCost": { "legna": 40, "acqua": 90, "impegno": 0 },
-    "trainTimeSec": 18,
-    "hp": 70,
-    "damage": 10,
     "speed": 1.8,
     "range": 3.5,
     "prefer": "any",
@@ -68,17 +133,34 @@
     "barracks": "tenda_specialita",
     "color": "#EF6C00",
     "spriteKey": "troop_cuoco",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 70,
+        "damage": 10,
+        "trainCost": {
+          "legna": 40,
+          "acqua": 90,
+          "impegno": 0
+        },
+        "trainTimeSec": 18,
+        "unlockEra": "reparto"
+      }
+    ]
   },
   {
     "id": "topografo",
     "name": "Topografo",
     "housing": 2,
-    "trainCost": { "legna": 60, "acqua": 60, "impegno": 0 },
-    "trainTimeSec": 16,
-    "hp": 55,
-    "damage": 14,
     "speed": 2.4,
     "range": 4,
     "prefer": "resource",
@@ -86,18 +168,34 @@
     "barracks": "tenda_specialita",
     "color": "#26A69A",
     "spriteKey": "troop_topografo",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 55,
+        "damage": 14,
+        "trainCost": {
+          "legna": 60,
+          "acqua": 60,
+          "impegno": 0
+        },
+        "trainTimeSec": 16,
+        "unlockEra": "reparto"
+      }
+    ]
   },
   {
     "id": "infermiere",
     "name": "Infermiere",
     "housing": 3,
-    "trainCost": { "legna": 70, "acqua": 110, "impegno": 0 },
-    "trainTimeSec": 24,
-    "hp": 90,
-    "damage": 6,
-    "heal": 15,
     "speed": 1.7,
     "range": 2.5,
     "prefer": "any",
@@ -105,17 +203,35 @@
     "barracks": "tenda_specialita",
     "color": "#EC407A",
     "spriteKey": "troop_infermiere",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 90,
+        "damage": 6,
+        "trainCost": {
+          "legna": 70,
+          "acqua": 110,
+          "impegno": 0
+        },
+        "trainTimeSec": 24,
+        "unlockEra": "reparto",
+        "heal": 15
+      }
+    ]
   },
   {
     "id": "segnalatore_troop",
     "name": "Segnalatore",
     "housing": 2,
-    "trainCost": { "legna": 55, "acqua": 55, "impegno": 0 },
-    "trainTimeSec": 15,
-    "hp": 50,
-    "damage": 16,
     "speed": 2.0,
     "range": 4.5,
     "prefer": "defense",
@@ -123,17 +239,34 @@
     "barracks": "tenda_specialita",
     "color": "#FDD835",
     "spriteKey": "troop_segnalatore",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 50,
+        "damage": 16,
+        "trainCost": {
+          "legna": 55,
+          "acqua": 55,
+          "impegno": 0
+        },
+        "trainTimeSec": 15,
+        "unlockEra": "reparto"
+      }
+    ]
   },
   {
     "id": "novizio",
     "name": "Novizio",
     "housing": 4,
-    "trainCost": { "legna": 120, "acqua": 120, "impegno": 5 },
-    "trainTimeSec": 30,
-    "hp": 160,
-    "damage": 28,
     "speed": 1.8,
     "range": 1.2,
     "prefer": "any",
@@ -141,17 +274,34 @@
     "barracks": "tenda_specialita",
     "color": "#5C6BC0",
     "spriteKey": "troop_novizio",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 160,
+        "damage": 28,
+        "trainCost": {
+          "legna": 120,
+          "acqua": 120,
+          "impegno": 5
+        },
+        "trainTimeSec": 30,
+        "unlockEra": "noviziato"
+      }
+    ]
   },
   {
     "id": "rover",
     "name": "Rover / Scolta",
     "housing": 5,
-    "trainCost": { "legna": 200, "acqua": 180, "impegno": 15 },
-    "trainTimeSec": 40,
-    "hp": 220,
-    "damage": 40,
     "speed": 1.9,
     "range": 1.3,
     "prefer": "any",
@@ -159,17 +309,34 @@
     "barracks": "campo_competenza",
     "color": "#3949AB",
     "spriteKey": "troop_rover",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 220,
+        "damage": 40,
+        "trainCost": {
+          "legna": 200,
+          "acqua": 180,
+          "impegno": 15
+        },
+        "trainTimeSec": 40,
+        "unlockEra": "clan"
+      }
+    ]
   },
   {
     "id": "pioniere",
     "name": "Pioniere",
     "housing": 6,
-    "trainCost": { "legna": 280, "acqua": 160, "impegno": 20 },
-    "trainTimeSec": 50,
-    "hp": 280,
-    "damage": 55,
     "speed": 1.3,
     "range": 1.1,
     "prefer": "wall",
@@ -177,18 +344,35 @@
     "barracks": "campo_competenza",
     "color": "#795548",
     "spriteKey": "troop_pioniere",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 },
-    "brevettoOf": "falegname"
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "brevettoOf": "falegname",
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 280,
+        "damage": 55,
+        "trainCost": {
+          "legna": 280,
+          "acqua": 160,
+          "impegno": 20
+        },
+        "trainTimeSec": 50,
+        "unlockEra": "clan"
+      }
+    ]
   },
   {
     "id": "trappeur",
     "name": "Trappeur",
     "housing": 5,
-    "trainCost": { "legna": 220, "acqua": 220, "impegno": 18 },
-    "trainTimeSec": 45,
-    "hp": 180,
-    "damage": 48,
     "speed": 2.5,
     "range": 1.2,
     "prefer": "resource",
@@ -196,19 +380,35 @@
     "barracks": "campo_competenza",
     "color": "#33691E",
     "spriteKey": "troop_trappeur",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 },
-    "brevettoOf": "campeggiatore"
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "brevettoOf": "campeggiatore",
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 180,
+        "damage": 48,
+        "trainCost": {
+          "legna": 220,
+          "acqua": 220,
+          "impegno": 18
+        },
+        "trainTimeSec": 45,
+        "unlockEra": "clan"
+      }
+    ]
   },
   {
     "id": "soccorritore",
     "name": "Soccorritore",
     "housing": 5,
-    "trainCost": { "legna": 180, "acqua": 260, "impegno": 18 },
-    "trainTimeSec": 48,
-    "hp": 200,
-    "damage": 12,
-    "heal": 35,
     "speed": 1.8,
     "range": 3,
     "prefer": "any",
@@ -216,18 +416,36 @@
     "barracks": "campo_competenza",
     "color": "#C62828",
     "spriteKey": "troop_soccorritore",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 },
-    "brevettoOf": "infermiere"
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "brevettoOf": "infermiere",
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 200,
+        "damage": 12,
+        "trainCost": {
+          "legna": 180,
+          "acqua": 260,
+          "impegno": 18
+        },
+        "trainTimeSec": 48,
+        "unlockEra": "clan",
+        "heal": 35
+      }
+    ]
   },
   {
     "id": "tirocinante",
     "name": "Tirocinante",
     "housing": 6,
-    "trainCost": { "legna": 350, "acqua": 350, "impegno": 40 },
-    "trainTimeSec": 60,
-    "hp": 320,
-    "damage": 60,
     "speed": 1.7,
     "range": 1.4,
     "prefer": "any",
@@ -235,17 +453,34 @@
     "barracks": "campo_competenza",
     "color": "#455A64",
     "spriteKey": "troop_tirocinante",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 320,
+        "damage": 60,
+        "trainCost": {
+          "legna": 350,
+          "acqua": 350,
+          "impegno": 40
+        },
+        "trainTimeSec": 60,
+        "unlockEra": "comunita_capi"
+      }
+    ]
   },
   {
     "id": "capo_unita",
     "name": "Capo Unità",
     "housing": 10,
-    "trainCost": { "legna": 600, "acqua": 600, "impegno": 80 },
-    "trainTimeSec": 90,
-    "hp": 500,
-    "damage": 90,
     "speed": 1.6,
     "range": 2,
     "prefer": "defense",
@@ -253,7 +488,28 @@
     "barracks": "campo_competenza",
     "color": "#1A237E",
     "spriteKey": "troop_capo_unita",
-    "anchor": { "x": 0.5, "y": 1 },
-    "footprint": { "w": 1, "h": 1 }
+    "anchor": {
+      "x": 0.5,
+      "y": 1
+    },
+    "footprint": {
+      "w": 1,
+      "h": 1
+    },
+    "maxLevel": 1,
+    "levels": [
+      {
+        "level": 1,
+        "hp": 500,
+        "damage": 90,
+        "trainCost": {
+          "legna": 600,
+          "acqua": 600,
+          "impegno": 80
+        },
+        "trainTimeSec": 90,
+        "unlockEra": "comunita_capi"
+      }
+    ]
   }
 ]
