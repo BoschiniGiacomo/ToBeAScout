@@ -13,8 +13,8 @@ export type PictureDrawItem = {
   anchorY: number;
 };
 
-/** Small downward nudge — compensates transparent padding in PNG exports. */
-const GROUND_NUDGE_Y = 6;
+/** Negative = shift sprite toward map rear (up on screen), off footprint south tip. */
+const DEPTH_NUDGE_Y = -8;
 
 function layoutSprite(item: PictureDrawItem) {
   const tip = footprintSouthTipScreen(item.x, item.y, item.w, item.h);
@@ -38,7 +38,7 @@ function layoutSprite(item: PictureDrawItem) {
   const ay = item.anchorY;
   return {
     left: tip.x - bw * ax,
-    top: tip.y - bh * ay + GROUND_NUDGE_Y,
+    top: tip.y - bh * ay + DEPTH_NUDGE_Y,
     bw,
     bh,
   };
