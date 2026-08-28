@@ -14,7 +14,7 @@ import { BUILDINGS, TROOPS } from '../sim/content';
 import { isBuildingUnlocked } from '../sim/buildings';
 import { armyCampCapacity, armyHousingUsed, isTroopUnlocked } from '../sim/training';
 import { formatResourceAmount, freeBuilderSlots, RESOURCE_PACKS } from '../sim/economy';
-import { resolveBuildingSprite } from '../render/assets';
+import { resolveBuildingSprite, resolveTroopSprite } from '../render/assets';
 import type { Resources } from '../sim/types';
 
 const LEGNA_ICON = require('../../assets/ui/resource_legna.png');
@@ -174,7 +174,9 @@ export function ShopSheet({ visible, onClose }: Props) {
                 {unlockedTroops.length === 0 ? (
                   <Text style={styles.empty}>Nessuna truppa sbloccata</Text>
                 ) : (
-                  unlockedTroops.map((t) => (
+                  unlockedTroops.map((t) => {
+                    const sprite = resolveTroopSprite(t.spriteKey);
+                    return (
                     <Pressable
                       key={t.id}
                       style={[styles.card, { width: cardW }]}
@@ -184,6 +186,11 @@ export function ShopSheet({ visible, onClose }: Props) {
                         {t.name}
                       </Text>
                       <View style={styles.cardArt}>
+                        {sprite ? (
+                          <Image source={sprite} style={styles.cardSprite} resizeMode="contain" />
+                        ) : (
+                          <View style={[styles.cardFallback, { backgroundColor: t.color }]} />
+                        )}
                         <View style={styles.troopBadge}>
                           <Text style={styles.troopBadgeText}>{t.housing}</Text>
                           <Text style={styles.troopBadgeSub}>posti</Text>
@@ -194,7 +201,8 @@ export function ShopSheet({ visible, onClose }: Props) {
                         <CostRow cost={t.trainCost} />
                       </View>
                     </Pressable>
-                  ))
+                    );
+                  })
                 )}
               </ScrollView>
             ) : null}
