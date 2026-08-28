@@ -1,17 +1,11 @@
 import React, { memo, useCallback, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  Canvas,
-  Group,
-  Image as SkiaImage,
-  Path,
-  Rect,
-  RoundedRect,
-  Skia,
-  useImage,
-} from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canPlace } from '../sim/buildings';
@@ -27,8 +21,8 @@ import {
 import { mapLogMount, mapLogPanBegin, mapLogPanEnd, mapLog } from '../debug/mapPerfLog';
 
 /**
- * Viewport-sized Skia canvas + camera Group (UI-thread pan, no huge texture move).
- * Ground = lightweight isometric diamond paths (no grass textures).
+ * RN-native renderer (no Skia): static world layer + GPU-moved Animated.View.
+ * Avoids Skia useImage memory leaks that crash Expo Go after a few pans.
  */
 
 interface Props {
@@ -58,40 +52,55 @@ type DrawItem = {
   sprite: number | null;
 };
 
-function addTileDiamond(path: ReturnType<typeof Skia.Path.Make>, gx: number, gy: number) {
-  const c = gridToScreen(gx, gy);
-  path.moveTo(c.x, c.y - TILE_H / 2);
-  path.lineTo(c.x + TILE_W / 2, c.y);
-  path.lineTo(c.x, c.y + TILE_H / 2);
-  path.lineTo(c.x - TILE_W / 2, c.y);
-  path.close();
-}
+const TILE_DIAMOND = Math.round(TILE_W * 0.52);
 
 const GroundGrid = memo(function GroundGrid({ gridSize }: { gridSize: number }) {
-  const { evenPath, oddPath, edgePath } = useMemo(() => {
-    const even = Skia.Path.Make();
-    const odd = Skia.Path.Make();
-    const edge = Skia.Path.Make();
-    for (let gy = 0; gy < gridSize; gy++) {
-      for (let gx = 0; gx < gridSize; gx++) {
-        addTileDiamond((gx + gy) % 2 === 0 ? even : odd, gx, gy);
-      }
-    }
-    for (let i = 0; i < gridSize; i++) {
-      addTileDiamond(edge, i, 0);
-      addTileDiamond(edge, 0, i);
-      addTileDiamond(edge, gridSize - 1, i);
-      addTileDiamond(edge, i, gridSize - 1);
-    }
-    return { evenPath: even, oddPath: odd, edgePath: edge };
+  const bounds = useMemo(() => {
+    const tl = gridToScreen(0, 0);
+    const br = gridToScreen(gridSize - 1, gridSize - 1);
+    const bl = gridToScreen(0, gridSize - 1);
+    const tr = gridToScreen(gridSize - 1, 0);
+    const minX = Math.min(tl.x, br.x, bl.x, tr.x) - TILE_W;
+    const maxX = Math.max(tl.x, br.x, bl.x, tr.x) + TILE_W;
+    const minY = Math.min(tl.y, br.y, bl.y, tr.y) - TILE_H;
+    const maxY = Math.max(tl.y, br.y, bl.y, tr.y) + TILE_H * 1.5;
+    return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
   }, [gridSize]);
 
+  const markers = useMemo(() => {
+    const list: { key: string; cx: number; cy: number; color: string }[] = [];
+    const step = 2;
+    for (let gy = 0; gy < gridSize; gy += step) {
+      for (let gx = 0; gx < gridSize; gx += step) {
+        const c = gridToScreen(gx, gy);
+        list.push({
+          key: `${gx}-${gy}`,
+          cx: c.x - bounds.left,
+          cy: c.y - bounds.top,
+          color: (gx + gy) % 4 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        });
+      }
+    }
+    return list;
+  }, [gridSize, bounds.left, bounds.top]);
+
   return (
-    <Group>
-      <Path path={evenPath} color="#4E9B4A" style="fill" />
-      <Path path={oddPath} color="#468C42" style="fill" />
-      <Path path={edgePath} color="#356832" style="stroke" strokeWidth={1.25} />
-    </Group>
+    <View pointerEvents="none" style={[styles.ground, bounds]}>
+      {markers.map((m) => (
+        <View
+          key={m.key}
+          style={{
+            position: 'absolute',
+            left: m.cx - TILE_DIAMOND / 2,
+            top: m.cy - TILE_DIAMOND / 2,
+            width: TILE_DIAMOND,
+            height: TILE_DIAMOND,
+            backgroundColor: m.color,
+            transform: [{ rotate: '45deg' }],
+          }}
+        />
+      ))}
+    </View>
   );
 });
 
@@ -108,50 +117,33 @@ function layoutSprite(item: DrawItem) {
   };
 }
 
-const SkiaBuilding = memo(function SkiaBuilding({ item }: { item: DrawItem }) {
-  const img = useImage(item.sprite ?? undefined);
+const BuildingMarker = memo(function BuildingMarker({ item }: { item: DrawItem }) {
   const { left, top, bw, bh } = layoutSprite(item);
-
-  if (item.sprite && img) {
-    return (
-      <Group>
-        {item.selected ? (
-          <RoundedRect
-            x={left - 2}
-            y={top - 2}
-            width={bw + 4}
-            height={bh + 4}
-            r={4}
-            color="rgba(255,245,157,0.85)"
-            style="stroke"
-            strokeWidth={2}
-          />
-        ) : null}
-        <SkiaImage image={img} x={left} y={top} width={bw} height={bh} fit="contain" />
-      </Group>
-    );
-  }
-
-  return <RoundedRect x={left} y={top} width={bw} height={bh} r={4} color={item.color} />;
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.building,
+        { left, top, width: bw, height: bh },
+        item.selected && styles.buildingSelected,
+      ]}
+    >
+      {item.sprite ? (
+        <Image source={item.sprite} style={{ width: bw, height: bh }} resizeMode="contain" />
+      ) : (
+        <View style={[styles.buildingFallback, { backgroundColor: item.color }]} />
+      )}
+    </View>
+  );
 });
 
-const WorldCanvas = memo(function WorldCanvas({
-  viewportW,
-  viewportH,
+const WorldContent = memo(function WorldContent({
   gridSize,
-  cameraX,
-  cameraY,
-  cameraScale,
   items,
   previewCells,
   placementBuildingId,
 }: {
-  viewportW: number;
-  viewportH: number;
   gridSize: number;
-  cameraX: { value: number };
-  cameraY: { value: number };
-  cameraScale: { value: number };
   items: DrawItem[];
   previewCells: {
     valid: boolean;
@@ -161,64 +153,65 @@ const WorldCanvas = memo(function WorldCanvas({
   } | null;
   placementBuildingId: string | null;
 }) {
-  const cameraTransform = useDerivedValue(() => [
-    { translateX: cameraX.value },
-    { translateY: cameraY.value },
-    { scale: cameraScale.value },
-  ]);
-
   useEffect(() => {
-    mapLog('canvas.draw', { items: items.length, preview: previewCells ? 1 : 0, vpW: viewportW });
-  }, [items.length, previewCells, viewportW]);
+    mapLog('world.draw', { items: items.length, preview: previewCells ? 1 : 0 });
+  }, [items.length, previewCells]);
 
   return (
-    <Canvas style={{ width: viewportW, height: viewportH }}>
-      <Group transform={cameraTransform}>
-        <GroundGrid gridSize={gridSize} />
-        {items.map((item) => (
-          <SkiaBuilding key={item.key} item={item} />
-        ))}
-        {previewCells
-          ? previewCells.cells.map((c) => {
-              const p = gridToScreen(c.x, c.y);
-              return (
-                <Rect
-                  key={`p-${c.x}-${c.y}`}
-                  x={p.x - TILE_W / 2}
-                  y={p.y - TILE_H / 2}
-                  width={TILE_W}
-                  height={TILE_H}
-                  color={previewCells.valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
-                />
-              );
-            })
-          : null}
-        {previewCells && placementBuildingId ? (
-          <Group opacity={previewCells.valid ? 0.9 : 0.45}>
-            <SkiaBuilding
-              item={toDrawItem(
-                'ghost',
+    <>
+      <GroundGrid gridSize={gridSize} />
+      {previewCells
+        ? previewCells.cells.map((c) => {
+            const p = gridToScreen(c.x, c.y);
+            return (
+              <View
+                key={`p-${c.x}-${c.y}`}
+                pointerEvents="none"
+                style={[
+                  styles.previewCell,
+                  {
+                    left: p.x - TILE_W / 2,
+                    top: p.y - TILE_H / 2,
+                    backgroundColor: previewCells.valid
+                      ? 'rgba(76,175,80,0.5)'
+                      : 'rgba(229,57,53,0.5)',
+                  },
+                ]}
+              />
+            );
+          })
+        : null}
+      {items.map((item) => (
+        <BuildingMarker key={item.key} item={item} />
+      ))}
+      {previewCells && placementBuildingId ? (
+        <View
+          pointerEvents="none"
+          style={{ opacity: previewCells.valid ? 0.9 : 0.45 }}
+        >
+          <BuildingMarker
+            item={toDrawItem(
+              'ghost',
+              previewCells.hoverTile.x,
+              previewCells.hoverTile.y,
+              previewCells.def.footprint.w,
+              previewCells.def.footprint.h,
+              placementBuildingId,
+              1,
+              previewCells.def.color,
+              depthKey(
                 previewCells.hoverTile.x,
                 previewCells.hoverTile.y,
                 previewCells.def.footprint.w,
                 previewCells.def.footprint.h,
-                placementBuildingId,
-                1,
-                previewCells.def.color,
-                depthKey(
-                  previewCells.hoverTile.x,
-                  previewCells.hoverTile.y,
-                  previewCells.def.footprint.w,
-                  previewCells.def.footprint.h,
-                  9,
-                ),
-                false,
-              )}
-            />
-          </Group>
-        ) : null}
-      </Group>
-    </Canvas>
+                9,
+              ),
+              false,
+            )}
+          />
+        </View>
+      ) : null}
+    </>
   );
 });
 
@@ -260,6 +253,13 @@ function eventToGrid(
   return screenToGrid(localX, localY);
 }
 
+function worldSize(gridSize: number) {
+  return {
+    worldW: gridSize * TILE_W + 80,
+    worldH: gridSize * TILE_H + 120,
+  };
+}
+
 export function IsometricWorld({
   state,
   width,
@@ -276,6 +276,8 @@ export function IsometricWorld({
 }: Props) {
   const gridSize = combat?.mapSize ?? META.gridSize;
   const placing = mode === 'village' && !!placementBuildingId;
+  const { worldW, worldH } = worldSize(gridSize);
+
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -296,7 +298,7 @@ export function IsometricWorld({
       grid: gridSize,
       buildings: state.buildings.length,
       placing: placing ? 1 : 0,
-      renderer: 'skia-viewport-camera',
+      renderer: 'rn-animated-world',
     });
   }, [mode, width, height, gridSize, state.buildings.length, placing]);
 
@@ -350,8 +352,8 @@ export function IsometricWorld({
     () =>
       Gesture.Pan()
         .minPointers(placing ? 2 : 1)
-        .activeOffsetX([-8, 8])
-        .activeOffsetY([-8, 8])
+        .activeOffsetX([-6, 6])
+        .activeOffsetY([-6, 6])
         .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
@@ -384,8 +386,6 @@ export function IsometricWorld({
     [placing, offsetX, offsetY, scale, reportHover],
   );
 
-  const pinch = useMemo(() => Gesture.Pinch().enabled(false), []);
-
   const tap = useMemo(
     () =>
       Gesture.Tap().onEnd((e) => {
@@ -399,10 +399,18 @@ export function IsometricWorld({
   const composed = useMemo(
     () =>
       placing
-        ? Gesture.Simultaneous(placePointer, cameraPan, pinch, tap)
-        : Gesture.Simultaneous(cameraPan, pinch, tap),
-    [placing, placePointer, cameraPan, pinch, tap],
+        ? Gesture.Simultaneous(placePointer, cameraPan, tap)
+        : Gesture.Simultaneous(cameraPan, tap),
+    [placing, placePointer, cameraPan, tap],
   );
+
+  const cameraStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value },
+      { translateY: offsetY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   const buildingVisualKey = useMemo(
     () =>
@@ -488,17 +496,23 @@ export function IsometricWorld({
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
-          <WorldCanvas
-            viewportW={width}
-            viewportH={height}
-            gridSize={gridSize}
-            cameraX={offsetX}
-            cameraY={offsetY}
-            cameraScale={scale}
-            items={sorted}
-            previewCells={previewCells}
-            placementBuildingId={placementBuildingId ?? null}
-          />
+          <Animated.View
+            collapsable={false}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing={false}
+            style={[
+              styles.world,
+              { width: worldW, height: worldH },
+              cameraStyle,
+            ]}
+          >
+            <WorldContent
+              gridSize={gridSize}
+              items={sorted}
+              previewCells={previewCells}
+              placementBuildingId={placementBuildingId ?? null}
+            />
+          </Animated.View>
         </View>
       </GestureDetector>
       {placing ? (
@@ -516,6 +530,38 @@ const styles = StyleSheet.create({
   wrap: {
     overflow: 'hidden',
     backgroundColor: '#1A3A28',
+  },
+  world: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  ground: {
+    backgroundColor: '#4A8F47',
+    borderWidth: 2,
+    borderColor: '#356832',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  building: {
+    position: 'absolute',
+  },
+  buildingSelected: {
+    borderWidth: 2,
+    borderColor: '#FFF59D',
+    borderRadius: 6,
+  },
+  buildingFallback: {
+    flex: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  previewCell: {
+    position: 'absolute',
+    width: TILE_W,
+    height: TILE_H,
+    borderRadius: 2,
   },
   placeBanner: {
     position: 'absolute',

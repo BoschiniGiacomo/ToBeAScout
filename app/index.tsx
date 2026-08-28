@@ -44,7 +44,10 @@ export default function VillageScreen() {
     const { width, height } = e.nativeEvent.layout;
     const w = Math.floor(width);
     const h = Math.floor(height);
-    setMapSize((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    setMapSize((prev) => {
+      if (Math.abs(prev.width - w) < 6 && Math.abs(prev.height - h) < 6) return prev;
+      return { width: w, height: h };
+    });
   };
 
   if (!ready) {
