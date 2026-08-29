@@ -75,11 +75,14 @@ export default function VillageScreen() {
     (gx: number, gy: number) => {
       if (!placementBuilding) return;
       const check = canPlace(state, placementBuilding, gx, gy);
-      if (!check.ok) return;
+      if (!check.ok) {
+        showMessage(check.reason);
+        return;
+      }
       place(placementBuilding, gx, gy);
       setHoverTile(null);
     },
-    [placementBuilding, place, state],
+    [placementBuilding, place, state, showMessage],
   );
 
   const onStartMoveBuilding = useCallback(

@@ -311,6 +311,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const stateRef = useRef(state);
   stateRef.current = state;
   const hoverThrottleRef = useRef({ x: -1, y: -1, t: 0 });
+  const lastPlaceTapAt = useRef(0);
 
   useEffect(() => {
     interactingSV.value = interacting ? 1 : 0;
@@ -485,12 +486,25 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           return;
         }
         if (placementBuildingId) {
+          const now = Date.now();
+          if (now - lastPlaceTapAt.current < 450) return;
+          lastPlaceTapAt.current = now;
           mapLog('place.tap', { gx, gy, building: placementBuildingId });
-          onConfirmPlace?.(gx, gy);
+          const building = placementBuildingId;
+          setTimeout(() => {
+            mapLog('place.commit', { gx, gy, building });
+            try {
+              onConfirmPlace?.(gx, gy);
+              mapLog('place.done', { gx, gy });
+            } catch (e) {
+              logCrash('action', 'map.place.commit', e, { gx, gy, building });
+            }
+          }, 0);
           return;
         }
         if (movingBuildingId) {
-          onConfirmMove?.(gx, gy);
+          mapLog('move.tap', { gx, gy, id: movingBuildingId });
+          setTimeout(() => onConfirmMove?.(gx, gy), 0);
           return;
         }
         const hit = findBuildingAt(state.buildings as PlacedBuilding[], gx, gy);
@@ -580,8 +594,25 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             runOnJS(onPanTickJS)(next.x, next.y, s);
           }
         })
-        .onFinalize(() => {
+        .onFinalize((e) => {
           runOnJS(onPanEndJS)();
+          // Short press while placing often activates Pan, not Tap — treat as place tap.
+          if (
+            interactingSV.value > 0 &&
+            Math.abs(e.translationX) < 14 &&
+            Math.abs(e.translationY) < 14
+          ) {
+            const g = eventToGrid(
+              e.x,
+              e.y,
+              offsetX.value,
+              offsetY.value,
+              scale.value,
+              worldOriginX.value,
+              worldOriginY.value,
+            );
+            runOnJS(handleTap)(g.x, g.y);
+          }
         }),
     [
       offsetX,
@@ -595,10 +626,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       boundsMaxX,
       boundsMinY,
       boundsMaxY,
+      worldOriginX,
+      worldOriginY,
+      interactingSV,
       panTickGate,
       onPanBeginJS,
       onPanTickJS,
       onPanEndJS,
+      handleTap,
     ],
   );
 
@@ -678,19 +713,22 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   );
 
   const tap = useMemo(() => {
-    const g = Gesture.Tap().maxDuration(250).onEnd((e) => {
-      const gxy = eventToGrid(
-        e.x,
-        e.y,
-        offsetX.value,
-        offsetY.value,
-        scale.value,
-        worldOriginX.value,
-        worldOriginY.value,
-      );
-      if (interactingSV.value > 0) runOnJS(reportHover)(gxy.x, gxy.y);
-      runOnJS(handleTap)(gxy.x, gxy.y);
-    });
+    const g = Gesture.Tap()
+      .maxDuration(280)
+      .maxDistance(12)
+      .onEnd((e) => {
+        const gxy = eventToGrid(
+          e.x,
+          e.y,
+          offsetX.value,
+          offsetY.value,
+          scale.value,
+          worldOriginX.value,
+          worldOriginY.value,
+        );
+        // No reportHover here — setState during tap+place races Skia rebuild.
+        runOnJS(handleTap)(gxy.x, gxy.y);
+      });
     g.requireExternalGestureToFail(cameraPan);
     return g;
   }, [
@@ -700,8 +738,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     scale,
     worldOriginX,
     worldOriginY,
-    interactingSV,
-    reportHover,
     handleTap,
   ]);
 

@@ -83,6 +83,7 @@ export function recordBuildingsPicture(
 
 let cachedKey = '';
 let cachedPicture: SkPicture | null = null;
+let disposeTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Cached buildings layer — avoids dispose/recreate flicker on unchanged layout. */
 export function getBuildingsPicture(
@@ -97,11 +98,26 @@ export function getBuildingsPicture(
   const prev = cachedPicture;
   cachedPicture = recordBuildingsPicture(worldW, worldH, originX, originY, items);
   cachedKey = key;
-  prev?.dispose?.();
+  // Never dispose while Canvas may still hold the old picture (Android native crash).
+  if (prev) {
+    if (disposeTimer) clearTimeout(disposeTimer);
+    disposeTimer = setTimeout(() => {
+      try {
+        prev.dispose?.();
+      } catch {
+        /* ignore */
+      }
+      disposeTimer = null;
+    }, 750);
+  }
   return cachedPicture;
 }
 
 export function clearBuildingsPictureCache(): void {
+  if (disposeTimer) {
+    clearTimeout(disposeTimer);
+    disposeTimer = null;
+  }
   cachedPicture?.dispose?.();
   cachedPicture = null;
   cachedKey = '';
