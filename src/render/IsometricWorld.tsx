@@ -527,6 +527,24 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     ],
   );
 
+  /** Grid math on JS thread only — calling eventToGrid from a worklet crashes Android. */
+  const onScreenTapJS = useCallback(
+    (
+      ex: number,
+      ey: number,
+      ox: number,
+      oy: number,
+      s: number,
+      originXSv: number,
+      originYSv: number,
+    ) => {
+      const g = eventToGrid(ex, ey, ox, oy, s, originXSv, originYSv);
+      mapLog('screen.tap', { ex: Math.round(ex), ey: Math.round(ey), gx: g.x, gy: g.y });
+      handleTap(g.x, g.y);
+    },
+    [handleTap],
+  );
+
   const onPanBeginJS = useCallback(() => {
     mapLogPanBegin(modeRef.current, buildingsCountRef.current);
   }, []);
@@ -596,13 +614,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         })
         .onFinalize((e) => {
           runOnJS(onPanEndJS)();
-          // Short press while placing often activates Pan, not Tap — treat as place tap.
+          // Short press in place mode: convert coords on JS (not in this worklet).
           if (
             interactingSV.value > 0 &&
-            Math.abs(e.translationX) < 14 &&
-            Math.abs(e.translationY) < 14
+            Math.abs(e.translationX) < 18 &&
+            Math.abs(e.translationY) < 18
           ) {
-            const g = eventToGrid(
+            runOnJS(onScreenTapJS)(
               e.x,
               e.y,
               offsetX.value,
@@ -611,7 +629,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
               worldOriginX.value,
               worldOriginY.value,
             );
-            runOnJS(handleTap)(g.x, g.y);
           }
         }),
     [
@@ -633,7 +650,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       onPanBeginJS,
       onPanTickJS,
       onPanEndJS,
-      handleTap,
+      onScreenTapJS,
     ],
   );
 
@@ -712,34 +729,33 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     ],
   );
 
-  const tap = useMemo(() => {
-    const g = Gesture.Tap()
-      .maxDuration(280)
-      .maxDistance(12)
-      .onEnd((e) => {
-        const gxy = eventToGrid(
-          e.x,
-          e.y,
-          offsetX.value,
-          offsetY.value,
-          scale.value,
-          worldOriginX.value,
-          worldOriginY.value,
-        );
-        // No reportHover here — setState during tap+place races Skia rebuild.
-        runOnJS(handleTap)(gxy.x, gxy.y);
-      });
-    g.requireExternalGestureToFail(cameraPan);
-    return g;
-  }, [
-    cameraPan,
-    offsetX,
-    offsetY,
-    scale,
-    worldOriginX,
-    worldOriginY,
-    handleTap,
-  ]);
+  const tap = useMemo(
+    () =>
+      Gesture.Tap()
+        .maxDuration(280)
+        .maxDistance(12)
+        .onEnd((e) => {
+          runOnJS(onScreenTapJS)(
+            e.x,
+            e.y,
+            offsetX.value,
+            offsetY.value,
+            scale.value,
+            worldOriginX.value,
+            worldOriginY.value,
+          );
+        })
+        .requireExternalGestureToFail(cameraPan),
+    [
+      cameraPan,
+      offsetX,
+      offsetY,
+      scale,
+      worldOriginX,
+      worldOriginY,
+      onScreenTapJS,
+    ],
+  );
 
   // Stable tree — never swap when entering place mode (Android crash).
   const composed = useMemo(
