@@ -5,7 +5,6 @@ import {
   Canvas,
   Group,
   Image as SkiaImage,
-  Path,
   Picture,
   RoundedRect,
   Skia,
@@ -123,28 +122,41 @@ const PreviewOverlay = memo(function PreviewOverlay({
   originY: number;
 }) {
   const cellKey = cells.map((c) => `${c.x},${c.y}`).join('|');
-  const path = useMemo(() => {
-    const p = Skia.Path.Make();
+  // Bake into SkPicture — live <Path> under animated Group crashes on Android.
+  const picture = useMemo(() => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const path = Skia.Path.Make();
     for (const c of cells) {
       const center = gridToScreen(c.x, c.y);
       const x = center.x + originX;
       const y = center.y + originY;
-      p.moveTo(x, y - TILE_H / 2);
-      p.lineTo(x + TILE_W / 2, y);
-      p.lineTo(x, y + TILE_H / 2);
-      p.lineTo(x - TILE_W / 2, y);
-      p.close();
+      path.moveTo(x, y - TILE_H / 2);
+      path.lineTo(x + TILE_W / 2, y);
+      path.lineTo(x, y + TILE_H / 2);
+      path.lineTo(x - TILE_W / 2, y);
+      path.close();
+      minX = Math.min(minX, x - TILE_W / 2);
+      maxX = Math.max(maxX, x + TILE_W / 2);
+      minY = Math.min(minY, y - TILE_H / 2);
+      maxY = Math.max(maxY, y + TILE_H / 2);
     }
-    return p;
-  }, [cellKey, originX, originY, cells]);
+    if (!Number.isFinite(minX)) return null;
+    const pad = 2;
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(
+      Skia.XYWHRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2),
+    );
+    const paint = Skia.Paint();
+    paint.setColor(Skia.Color(valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'));
+    canvas.drawPath(path, paint);
+    return recorder.finishRecordingAsPicture();
+  }, [cellKey, originX, originY, valid, cells]);
 
-  return (
-    <Path
-      path={path}
-      color={valid ? 'rgba(76,175,80,0.5)' : 'rgba(229,57,53,0.5)'}
-      style="fill"
-    />
-  );
+  if (!picture) return null;
+  return <Picture picture={picture} />;
 });
 
 function toDrawItem(
@@ -536,15 +548,27 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   const cameraPan = useMemo(
     () =>
       Gesture.Pan()
-        .minPointers(interacting ? 2 : 1)
-        .maxPointers(interacting ? 2 : 1)
+        .minPointers(1)
+        .maxPointers(1)
         .activeOffsetX([-12, 12])
         .activeOffsetY([-12, 12])
-        .onBegin(() => {
+        .onBegin((e) => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
           panTickGate.value = 0;
           runOnJS(onPanBeginJS)();
+          if (interactingSV.value > 0) {
+            const g = eventToGrid(
+              e.x,
+              e.y,
+              offsetX.value,
+              offsetY.value,
+              scale.value,
+              worldOriginX.value,
+              worldOriginY.value,
+            );
+            runOnJS(reportHover)(g.x, g.y);
+          }
         })
         .onUpdate((e) => {
           const s = scale.value > 0.01 ? scale.value : 1;
@@ -567,12 +591,23 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             panTickGate.value = 1;
             runOnJS(onPanTickJS)(next.x, next.y, s);
           }
+          if (interactingSV.value > 0) {
+            const g = eventToGrid(
+              e.x,
+              e.y,
+              offsetX.value,
+              offsetY.value,
+              scale.value,
+              worldOriginX.value,
+              worldOriginY.value,
+            );
+            runOnJS(reportHover)(g.x, g.y);
+          }
         })
         .onFinalize(() => {
           runOnJS(onPanEndJS)();
         }),
     [
-      interacting,
       offsetX,
       offsetY,
       startX,
@@ -584,10 +619,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       boundsMaxX,
       boundsMinY,
       boundsMaxY,
+      worldOriginX,
+      worldOriginY,
+      interactingSV,
       panTickGate,
       onPanBeginJS,
       onPanTickJS,
       onPanEndJS,
+      reportHover,
     ],
   );
 
@@ -666,86 +705,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     ],
   );
 
-  const placePointer = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(interacting)
-        .minPointers(1)
-        .maxPointers(1)
-        .onBegin((e) => {
-          const g = eventToGrid(
-            e.x,
-            e.y,
-            offsetX.value,
-            offsetY.value,
-            scale.value,
-            worldOriginX.value,
-            worldOriginY.value,
-          );
-          runOnJS(reportHover)(g.x, g.y);
-        })
-        .onUpdate((e) => {
-          const g = eventToGrid(
-            e.x,
-            e.y,
-            offsetX.value,
-            offsetY.value,
-            scale.value,
-            worldOriginX.value,
-            worldOriginY.value,
-          );
-          runOnJS(reportHover)(g.x, g.y);
-        }),
-    [interacting, offsetX, offsetY, scale, worldOriginX, worldOriginY, reportHover],
-  );
-
-  const moveHold = useMemo(
-    () =>
-      Gesture.LongPress()
-        .enabled(mode === 'village' && !interacting)
-        .minDuration(MOVE_HOLD_MS)
-        .maxDistance(12)
-        .onBegin((e) => {
-          const gxy = eventToGrid(
-            e.x,
-            e.y,
-            offsetX.value,
-            offsetY.value,
-            scale.value,
-            worldOriginX.value,
-            worldOriginY.value,
-          );
-          runOnJS(beginHoldJS)(e.x, e.y, gxy.x, gxy.y);
-        })
-        .onStart((e) => {
-          const gxy = eventToGrid(
-            e.x,
-            e.y,
-            offsetX.value,
-            offsetY.value,
-            scale.value,
-            worldOriginX.value,
-            worldOriginY.value,
-          );
-          runOnJS(completeHoldJS)(gxy.x, gxy.y);
-        })
-        .onFinalize(() => {
-          runOnJS(cancelHoldJS)();
-        }),
-    [
-      mode,
-      interacting,
-      offsetX,
-      offsetY,
-      scale,
-      worldOriginX,
-      worldOriginY,
-      beginHoldJS,
-      completeHoldJS,
-      cancelHoldJS,
-    ],
-  );
-
   const tap = useMemo(() => {
     const g = Gesture.Tap().maxDuration(250).onEnd((e) => {
       const gxy = eventToGrid(
@@ -757,35 +716,37 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         worldOriginX.value,
         worldOriginY.value,
       );
-      if (interacting) runOnJS(reportHover)(gxy.x, gxy.y);
+      if (interactingSV.value > 0) runOnJS(reportHover)(gxy.x, gxy.y);
       runOnJS(handleTap)(gxy.x, gxy.y);
     });
-    if (mode === 'village' && !interacting) {
-      g.requireExternalGestureToFail(cameraPan);
-      g.requireExternalGestureToFail(moveHold);
-    }
+    g.requireExternalGestureToFail(cameraPan);
     return g;
   }, [
-    mode,
-    interacting,
     cameraPan,
-    moveHold,
     offsetX,
     offsetY,
     scale,
     worldOriginX,
     worldOriginY,
+    interactingSV,
     reportHover,
     handleTap,
   ]);
 
-  const composed = useMemo(() => {
-    if (interacting) {
-      return Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap);
-    }
-    // Overlay keeps Canvas out of the touch path. Pinch activates only at 2 fingers.
-    return Gesture.Simultaneous(cameraPinch, cameraPan);
-  }, [interacting, placePointer, cameraPan, cameraPinch, tap]);
+  // Stable tree — never swap when entering place mode (Android crash).
+  const composed = useMemo(
+    () => Gesture.Simultaneous(cameraPinch, cameraPan, tap),
+    [cameraPinch, cameraPan, tap],
+  );
+
+  useEffect(() => {
+    if (!interacting) return;
+    mapLog('place.mode', {
+      placing: placing ? 1 : 0,
+      relocating: relocating ? 1 : 0,
+      building: placementBuildingId ?? movingBuildingId ?? 'none',
+    });
+  }, [interacting, placing, relocating, placementBuildingId, movingBuildingId]);
 
   /** Camera INSIDE Skia — Picture is world-sized; viewport Canvas must transform content, not the View. */
   const cameraTransform = useDerivedValue(() => [
