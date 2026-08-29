@@ -530,9 +530,9 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   const panTickGate = useSharedValue(0);
 
-  // DEBUG: set true to prove gesture alone (no camera write) survives.
-  // Expected logs: pan.begin → pan.tick → pan.end → pan.alive
-  const PAN_VISUAL = true;
+  // DEBUG isolation flags — leave false until pan.alive appears in Metro.
+  const PAN_VISUAL = false;
+  const DEBUG_PAN_ONLY = true;
 
   const cameraPan = useMemo(
     () =>
@@ -548,8 +548,13 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           runOnJS(onPanBeginJS)();
         })
         .onUpdate((e) => {
+          // Log BEFORE any camera write — proves UI thread reached onUpdate.
+          if (panTickGate.value === 0) {
+            panTickGate.value = 1;
+            runOnJS(onPanTickJS)(offsetX.value, offsetY.value, scale.value);
+          }
+          if (!PAN_VISUAL) return;
           const s = scale.value > 0.01 ? scale.value : 1;
-          // Finger px → world offset (camera = translate then scale)
           const next = clampPan(
             startX.value + e.translationX / s,
             startY.value + e.translationY / s,
@@ -561,14 +566,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             boundsMinY.value,
             boundsMaxY.value,
           );
-          if (PAN_VISUAL) {
-            offsetX.value = next.x;
-            offsetY.value = next.y;
-          }
-          if (panTickGate.value === 0) {
-            panTickGate.value = 1;
-            runOnJS(onPanTickJS)(next.x, next.y, s);
-          }
+          offsetX.value = next.x;
+          offsetY.value = next.y;
         })
         .onFinalize(() => {
           runOnJS(onPanEndJS)();
@@ -781,17 +780,26 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     handleTap,
   ]);
 
-  const composed = useMemo(
-    () =>
-      interacting
-        ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
-        : Gesture.Simultaneous(
-            cameraPinch,
-            Gesture.Exclusive(cameraPan, moveHold),
-            tap,
-          ),
-    [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
-  );
+  const composed = useMemo(() => {
+    if (DEBUG_PAN_ONLY && !interacting) {
+      // Isolate: one gesture only — no pinch / long-press / tap race on Android.
+      return cameraPan;
+    }
+    return interacting
+      ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
+      : Gesture.Simultaneous(
+          cameraPinch,
+          Gesture.Exclusive(cameraPan, moveHold),
+          tap,
+        );
+  }, [
+    interacting,
+    placePointer,
+    cameraPan,
+    cameraPinch,
+    moveHold,
+    tap,
+  ]);
 
   /** Camera INSIDE Skia — Picture is world-sized; viewport Canvas must transform content, not the View. */
   const cameraTransform = useDerivedValue(() => [
@@ -954,29 +962,28 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   return (
     <View style={[styles.wrap, { width, height }]}>
+      <Canvas style={{ width, height }}>
+        <Group transform={cameraTransform}>
+          <Picture picture={terrainPicture} />
+          {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
+          {combatUnits.length > 0 ? (
+            <UnitLayer units={combatUnits} originX={originX} originY={originY} />
+          ) : null}
+          {interactGhostItem ? (
+            <BuildingGhost item={interactGhostItem} originX={originX} originY={originY} />
+          ) : null}
+          {previewCells ? (
+            <PreviewOverlay
+              cells={previewCells.cells}
+              valid={previewCells.valid}
+              originX={originX}
+              originY={originY}
+            />
+          ) : null}
+        </Group>
+      </Canvas>
       <GestureDetector gesture={composed}>
-        <View style={{ width, height }} collapsable={false}>
-          <Canvas style={{ width, height }}>
-            <Group transform={cameraTransform}>
-              <Picture picture={terrainPicture} />
-              {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
-              {combatUnits.length > 0 ? (
-                <UnitLayer units={combatUnits} originX={originX} originY={originY} />
-              ) : null}
-              {interactGhostItem ? (
-                <BuildingGhost item={interactGhostItem} originX={originX} originY={originY} />
-              ) : null}
-              {previewCells ? (
-                <PreviewOverlay
-                  cells={previewCells.cells}
-                  valid={previewCells.valid}
-                  originX={originX}
-                  originY={originY}
-                />
-              ) : null}
-            </Group>
-          </Canvas>
-        </View>
+        <View style={StyleSheet.absoluteFillObject} collapsable={false} />
       </GestureDetector>
       {holdRing ? <MoveHoldRing x={holdRing.x} y={holdRing.y} progress={holdProgress} /> : null}
       {interacting ? (
