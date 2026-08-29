@@ -3,14 +3,15 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   Canvas,
+  Group,
   Image as SkiaImage,
   Path,
   Picture,
   RoundedRect,
   Skia,
 } from '@shopify/react-native-skia';
-import Animated, {
-  useAnimatedStyle,
+import {
+  useDerivedValue,
   useSharedValue,
   runOnJS,
   withTiming,
@@ -504,6 +505,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     mapLogPanBegin(modeRef.current, buildingsCountRef.current);
   }, []);
 
+  const onPanTickJS = useCallback((ox: number, oy: number, s: number) => {
+    mapLog('pan.tick', {
+      ox: Math.round(ox),
+      oy: Math.round(oy),
+      s: Math.round(s * 100) / 100,
+    });
+  }, []);
+
   const onPanEndJS = useCallback(() => {
     mapLogPanEnd();
     setTimeout(() => mapLog('pan.alive', { afterMs: 400 }), 400);
@@ -519,6 +528,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     setTimeout(() => mapLog('pinch.alive', { afterMs: 400 }), 400);
   }, []);
 
+  const panTickGate = useSharedValue(0);
+
+  // DEBUG: set true to prove gesture alone (no camera write) survives.
+  // Expected logs: pan.begin → pan.tick → pan.end → pan.alive
+  const PAN_VISUAL = true;
+
   const cameraPan = useMemo(
     () =>
       Gesture.Pan()
@@ -529,22 +544,31 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
+          panTickGate.value = 0;
           runOnJS(onPanBeginJS)();
         })
         .onUpdate((e) => {
+          const s = scale.value > 0.01 ? scale.value : 1;
+          // Finger px → world offset (camera = translate then scale)
           const next = clampPan(
-            startX.value + e.translationX,
-            startY.value + e.translationY,
+            startX.value + e.translationX / s,
+            startY.value + e.translationY / s,
             viewW.value,
             viewH.value,
-            scale.value,
+            s,
             boundsMinX.value,
             boundsMaxX.value,
             boundsMinY.value,
             boundsMaxY.value,
           );
-          offsetX.value = next.x;
-          offsetY.value = next.y;
+          if (PAN_VISUAL) {
+            offsetX.value = next.x;
+            offsetY.value = next.y;
+          }
+          if (panTickGate.value === 0) {
+            panTickGate.value = 1;
+            runOnJS(onPanTickJS)(next.x, next.y, s);
+          }
         })
         .onFinalize(() => {
           runOnJS(onPanEndJS)();
@@ -562,7 +586,9 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       boundsMaxX,
       boundsMinY,
       boundsMaxY,
+      panTickGate,
       onPanBeginJS,
+      onPanTickJS,
       onPanEndJS,
     ],
   );
@@ -767,14 +793,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
   );
 
-  /** Camera on RN layer — avoids Skia Group + Reanimated crash on Android during pan. */
-  const cameraStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: offsetX.value * scale.value },
-      { translateY: offsetY.value * scale.value },
-      { scale: scale.value },
-    ],
-  }));
+  /** Camera INSIDE Skia — Picture is world-sized; viewport Canvas must transform content, not the View. */
+  const cameraTransform = useDerivedValue(() => [
+    { translateX: offsetX.value },
+    { translateY: offsetY.value },
+    { scale: scale.value },
+  ]);
 
   const buildingVisualKey = useMemo(
     () =>
@@ -932,8 +956,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
-          <Animated.View style={[{ width, height }, cameraStyle]}>
-            <Canvas style={{ width, height }}>
+          <Canvas style={{ width, height }}>
+            <Group transform={cameraTransform}>
               <Picture picture={terrainPicture} />
               {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
               {combatUnits.length > 0 ? (
@@ -950,8 +974,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
                   originY={originY}
                 />
               ) : null}
-            </Canvas>
-          </Animated.View>
+            </Group>
+          </Canvas>
         </View>
       </GestureDetector>
       {holdRing ? <MoveHoldRing x={holdRing.x} y={holdRing.y} progress={holdProgress} /> : null}
