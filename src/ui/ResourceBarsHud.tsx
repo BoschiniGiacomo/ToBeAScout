@@ -60,81 +60,94 @@ export function ResourceBarsHud() {
   }, []);
 
   const showHint = (id: ResourceId) => {
-    setHintId(id);
     if (hintTimer.current) clearTimeout(hintTimer.current);
-    hintTimer.current = setTimeout(() => setHintId(null), 2800);
+    hintTimer.current = null;
+    setHintId((prev) => (prev === id ? null : id));
   };
 
   return (
-    <View
-      style={[
-        styles.wrap,
-        {
-          top: 8,
-          right: 16,
-        },
-      ]}
-    >
-      {BARS.map((bar) => {
-        const amount = Math.floor(state.resources[bar.id]);
-        const max = Math.max(1, caps[bar.id]);
-        const pct = Math.min(1, Math.max(0, amount / max));
-        const open = hintId === bar.id;
-        return (
-          <View key={bar.id} style={styles.item}>
-            <Pressable
-              style={styles.row}
-              onPress={() => showHint(bar.id)}
-              accessibilityRole="button"
-              accessibilityLabel={bar.name}
-            >
-              <View style={styles.barShell}>
-                <View style={styles.barTrack}>
+    <>
+      {hintId ? (
+        <Pressable
+          style={styles.dismissLayer}
+          onPress={() => setHintId(null)}
+          accessibilityLabel="Chiudi dettaglio risorsa"
+        />
+      ) : null}
+      <View
+        style={[
+          styles.wrap,
+          {
+            top: 8,
+            right: 16,
+          },
+        ]}
+      >
+        {BARS.map((bar) => {
+          const amount = Math.floor(state.resources[bar.id]);
+          const max = Math.max(1, caps[bar.id]);
+          const pct = Math.min(1, Math.max(0, amount / max));
+          const open = hintId === bar.id;
+          return (
+            <View key={bar.id} style={styles.item}>
+              <Pressable
+                style={styles.row}
+                onPress={() => showHint(bar.id)}
+                accessibilityRole="button"
+                accessibilityLabel={bar.name}
+              >
+                <View style={styles.barShell}>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.amount} numberOfLines={1}>
+                    {formatResourceAmount(amount)}
+                  </Text>
                   <View
                     style={[
-                      styles.barFill,
-                      { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
+                      styles.icon,
+                      bar.iconSource
+                        ? styles.iconImageWrap
+                        : { backgroundColor: bar.iconBg, borderColor: bar.fill },
                     ]}
-                  />
+                  >
+                    {bar.iconSource ? (
+                      <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.iconText}>{bar.icon}</Text>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.amount} numberOfLines={1}>
-                  {formatResourceAmount(amount)}
-                </Text>
-                <View
-                  style={[
-                    styles.icon,
-                    bar.iconSource
-                      ? styles.iconImageWrap
-                      : { backgroundColor: bar.iconBg, borderColor: bar.fill },
-                  ]}
-                >
-                  {bar.iconSource ? (
-                    <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.iconText}>{bar.icon}</Text>
-                  )}
+              </Pressable>
+              {open ? (
+                <View style={styles.vignette}>
+                  <Text style={styles.vignetteTitle}>{bar.name}</Text>
+                  <Text style={styles.vignetteLine}>
+                    Max: {formatResourceAmount(max)}
+                  </Text>
+                  <Text style={styles.vignetteLine}>
+                    Produzione oraria: {formatResourceAmount(Math.floor(rates[bar.id]))}/h
+                  </Text>
                 </View>
-              </View>
-            </Pressable>
-            {open ? (
-              <View style={styles.vignette}>
-                <Text style={styles.vignetteTitle}>{bar.name}</Text>
-                <Text style={styles.vignetteLine}>
-                  Max: {formatResourceAmount(max)}
-                </Text>
-                <Text style={styles.vignetteLine}>
-                  Produzione oraria: {formatResourceAmount(Math.floor(rates[bar.id]))}/h
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
-    </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  dismissLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 49,
+  },
   wrap: {
     position: 'absolute',
     zIndex: 50,
@@ -147,12 +160,12 @@ const styles = StyleSheet.create({
   vignette: {
     marginTop: 4,
     maxWidth: BAR_WIDTH + 20,
-    backgroundColor: 'rgba(0,0,0,0.88)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   vignetteTitle: {
     color: '#FFF59D',
