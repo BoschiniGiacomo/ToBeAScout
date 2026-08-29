@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useGame } from './GameContext';
 import { BUILDINGS, TROOPS } from '../sim/content';
-import { isBuildingUnlocked } from '../sim/buildings';
+import { isBuildingUnlocked, countOwnedBuildings, maxBuildingsAllowed } from '../sim/buildings';
 import { armyCampCapacity, armyHousingUsed, isTroopUnlocked, troopStatsForPlayer } from '../sim/training';
 import { formatResourceAmount, freeBuilderSlots, RESOURCE_PACKS } from '../sim/economy';
 import { getTroopLevel } from '../sim/content';
@@ -33,7 +33,24 @@ type Props = {
   onClose: () => void;
 };
 
-function CostRow({ cost }: { cost: Resources }) {
+function formatBuildDuration(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  if (s <= 0) return '0S';
+  if (s < 60) return `${s}S`;
+  if (s < 3600) {
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return r > 0 ? `${m}M ${r}S` : `${m}M`;
+  }
+  if (s < 86400) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m > 0 ? `${h}H ${m}M` : `${h}H`;
+  }
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  return h > 0 ? `${d}g ${h}H` : `${d}g`;
+}
   return (
     <View style={styles.costRow}>
       {cost.legna > 0 ? (
@@ -78,6 +95,9 @@ export function ShopSheet({ visible, onClose }: Props) {
   const cardW = Math.max(128, Math.min(156, width * 0.26));
 
   const pickBuilding = (id: string) => {
+    const owned = countOwnedBuildings(state, id);
+    const max = maxBuildingsAllowed(state, id);
+    if (owned >= max) return;
     setSelectedBuildingId(null);
     setPlacementBuilding(placementBuilding === id ? null : id);
     onClose();
@@ -135,13 +155,23 @@ export function ShopSheet({ visible, onClose }: Props) {
               >
                 {unlockedBuildings.map((b) => {
                   const cost = b.levels[0].buildCost;
+                  const buildTime = b.levels[0].buildTimeSec;
                   const sprite = resolveBuildingSprite(b.spriteKey, 1);
                   const active = placementBuilding === b.id;
+                  const owned = countOwnedBuildings(state, b.id);
+                  const max = maxBuildingsAllowed(state, b.id);
+                  const atLimit = owned >= max;
                   return (
                     <Pressable
                       key={b.id}
-                      style={[styles.card, { width: cardW }, active && styles.cardActive]}
+                      style={[
+                        styles.card,
+                        { width: cardW },
+                        active && styles.cardActive,
+                        atLimit && styles.cardDisabled,
+                      ]}
                       onPress={() => pickBuilding(b.id)}
+                      disabled={atLimit}
                     >
                       <Text style={styles.cardName} numberOfLines={2}>
                         {b.name}
@@ -154,6 +184,18 @@ export function ShopSheet({ visible, onClose }: Props) {
                         )}
                       </View>
                       <View style={styles.cardFooter}>
+                        <View style={styles.footerMeta}>
+                          <View style={styles.footerLeft}>
+                            <Text style={styles.timeLabel}>Tempo</Text>
+                            <Text style={styles.timeValue}>{formatBuildDuration(buildTime)}</Text>
+                          </View>
+                          <View style={styles.footerRight}>
+                            <Text style={styles.ownedLabel}>Ne hai:</Text>
+                            <Text style={[styles.ownedCount, atLimit && styles.ownedCountMax]}>
+                              {owned}/{max}
+                            </Text>
+                          </View>
+                        </View>
                         <CostRow cost={cost} />
                       </View>
                     </Pressable>
@@ -498,13 +540,50 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     minHeight: 28,
     backgroundColor: 'rgba(20,20,20,0.85)',
-    paddingVertical: 3,
-    paddingHorizontal: 4,
-    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignItems: 'stretch',
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.25)',
+  },
+  footerMeta: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  footerLeft: {
+    alignItems: 'flex-start',
+    flexShrink: 1,
+  },
+  footerRight: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  timeLabel: {
+    color: '#FFE082',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  timeValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  ownedLabel: {
+    color: '#FFE082',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  ownedCount: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  ownedCountMax: {
+    color: '#EF9A9A',
   },
   trainMeta: { color: '#FFE082', fontSize: 10, fontWeight: '700' },
   costRow: {

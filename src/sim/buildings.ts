@@ -4,6 +4,7 @@ import {
   assignBuilder,
   canAfford,
   freeBuilderSlots,
+  getQgLevel,
   nextId,
   spend,
   syncEraFromQg,
@@ -48,11 +49,30 @@ export function canPlace(
   if (x < 0 || y < 0 || x + w > META.gridSize || y + h > META.gridSize) {
     return { ok: false, reason: 'Fuori mappa' };
   }
-  if (def.unique && state.buildings.some((b) => b.buildingId === buildingId)) {
-    return { ok: false, reason: 'Già presente' };
+  const owned = countOwnedBuildings(state, buildingId);
+  const max = maxBuildingsAllowed(state, buildingId);
+  if (owned >= max) {
+    return { ok: false, reason: `Limite raggiunto (${owned}/${max})` };
   }
   if (isOccupied(state, x, y, w, h)) return { ok: false, reason: 'Occupato' };
   return { ok: true };
+}
+
+/** How many instances of this building the player already has. */
+export function countOwnedBuildings(state: GameState, buildingId: string): number {
+  return state.buildings.filter((b) => b.buildingId === buildingId).length;
+}
+
+/** Max instances allowed at current QG level (CoC-style). */
+export function maxBuildingsAllowed(state: GameState, buildingId: string): number {
+  const def = getBuildingDef(buildingId);
+  const qg = Math.max(1, getQgLevel(state));
+  if (def.maxCountByQgLevel && def.maxCountByQgLevel.length > 0) {
+    const idx = Math.min(def.maxCountByQgLevel.length - 1, qg - 1);
+    return Math.max(0, def.maxCountByQgLevel[idx] ?? 0);
+  }
+  if (def.unique) return 1;
+  return 99;
 }
 
 export function canMove(

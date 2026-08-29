@@ -45,6 +45,8 @@ export interface BuildingDef {
   spriteKey: string;
   color: string;
   unique?: boolean;
+  /** Max owned copies at QG level 1..N (CoC-style). Index 0 = QG 1. */
+  maxCountByQgLevel?: number[];
   produces?: {
     resource: ResourceId;
     perHour: number[];
