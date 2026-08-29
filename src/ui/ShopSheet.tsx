@@ -184,17 +184,17 @@ export function ShopSheet({ visible, onClose }: Props) {
                         ) : (
                           <View style={[styles.cardFallback, { backgroundColor: b.color }]} />
                         )}
-                      </View>
-                      <View style={styles.footerMeta}>
-                        <View style={styles.footerLeft}>
-                          <Text style={styles.timeLabel}>Tempo</Text>
-                          <Text style={styles.timeValue}>{formatBuildDuration(buildTime)}</Text>
-                        </View>
-                        <View style={styles.footerRight}>
-                          <Text style={styles.ownedLabel}>Ne hai:</Text>
-                          <Text style={[styles.ownedCount, atLimit && styles.ownedCountMax]}>
-                            {owned}/{max}
-                          </Text>
+                        <View style={styles.footerMeta} pointerEvents="none">
+                          <View style={styles.footerLeft}>
+                            <Text style={styles.timeLabel}>Tempo</Text>
+                            <Text style={styles.timeValue}>{formatBuildDuration(buildTime)}</Text>
+                          </View>
+                          <View style={styles.footerRight}>
+                            <Text style={styles.ownedLabel}>Ne hai:</Text>
+                            <Text style={[styles.ownedCount, atLimit && styles.ownedCountMax]}>
+                              {owned}/{max}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                       <View style={styles.cardFooter}>
@@ -504,14 +504,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 6,
     overflow: 'hidden',
+    position: 'relative',
   },
-  cardSprite: { width: '92%', height: '92%', maxWidth: 110, maxHeight: 110 },
+  cardSprite: {
+    width: '96%',
+    height: '96%',
+    maxWidth: 120,
+    maxHeight: 120,
+    transform: [{ translateY: -9 }],
+  },
   cardFallback: {
     width: 64,
     height: 64,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
+    transform: [{ translateY: -9 }],
   },
   housingPill: {
     position: 'absolute',
@@ -550,23 +558,23 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(0,0,0,0.25)',
   },
   footerMeta: {
-    flexShrink: 0,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 4,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    width: '100%',
     paddingHorizontal: 8,
-    paddingTop: 2,
-    paddingBottom: 4,
-    backgroundColor: 'transparent',
+    zIndex: 2,
   },
   footerLeft: {
     alignItems: 'flex-start',
-    flexShrink: 1,
+    maxWidth: '36%',
   },
   footerRight: {
     alignItems: 'flex-end',
-    flexShrink: 0,
+    maxWidth: '36%',
   },
   timeLabel: {
     color: '#FFF8E1',
