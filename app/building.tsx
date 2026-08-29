@@ -1,5 +1,13 @@
 import React, { useEffect } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../src/ui/GameContext';
@@ -10,6 +18,8 @@ import { resolveBuildingSprite } from '../src/render/assets';
 export default function BuildingScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { state, upgrade, collect } = useGame();
+  const { width, height } = useWindowDimensions();
+  const landscape = width > height;
 
   const building = id
     ? state.buildings.find((b) => b.instanceId === id)
@@ -33,6 +43,63 @@ export default function BuildingScreen() {
     building.level < def.maxLevel ? getBuildingLevel(def, building.level + 1) : null;
   const busy = !!(building.buildEndsAt && building.buildEndsAt > Date.now());
   const sprite = resolveBuildingSprite(def.spriteKey, building.level);
+  const spriteSize = landscape ? Math.min(140, height * 0.45) : Math.min(160, width * 0.4);
+
+  const art = sprite ? (
+    <Image
+      source={sprite}
+      style={{ width: spriteSize, height: spriteSize }}
+      resizeMode="contain"
+    />
+  ) : (
+    <View
+      style={[
+        styles.spriteFallback,
+        { width: spriteSize * 0.75, height: spriteSize * 0.75, backgroundColor: def.color },
+      ]}
+    />
+  );
+
+  const details = (
+    <>
+      <Text style={styles.level}>Livello {building.level}</Text>
+      <Text style={styles.meta}>HP {levelDef.hp}</Text>
+
+      {def.produces ? (
+        <Text style={styles.meta}>
+          Magazzino: {Math.floor(building.stored ?? 0)} /{' '}
+          {def.produces.capacity[building.level - 1] ?? def.produces.capacity[0]}{' '}
+          {def.produces.resource}
+        </Text>
+      ) : null}
+
+      {busy ? <Text style={styles.busy}>Costruzione / upgrade in corso…</Text> : null}
+
+      {nextLevel ? (
+        <Text style={styles.cost}>
+          Prossimo livello: {formatResourceAmount(nextLevel.buildCost.legna)} legna ·{' '}
+          {formatResourceAmount(nextLevel.buildCost.acqua)} acqua
+        </Text>
+      ) : null}
+
+      <View style={[styles.actions, landscape && styles.actionsLandscape]}>
+        {def.produces ? (
+          <Pressable style={styles.btn} onPress={() => collect(building.instanceId)}>
+            <Text style={styles.btnText}>Raccogli</Text>
+          </Pressable>
+        ) : null}
+        {building.level < def.maxLevel ? (
+          <Pressable
+            style={[styles.btn, busy && styles.btnDisabled]}
+            onPress={() => upgrade(building.instanceId)}
+            disabled={busy}
+          >
+            <Text style={styles.btnText}>Upgrade</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </>
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
@@ -40,54 +107,33 @@ export default function BuildingScreen() {
         <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Chiudi">
           <Text style={styles.back}>←</Text>
         </Pressable>
-        <Text style={styles.title}>{def.name}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {def.name}
+        </Text>
         <View style={styles.backSpacer} />
       </View>
 
-      <View style={styles.body}>
-        {sprite ? (
-          <Image source={sprite} style={styles.sprite} resizeMode="contain" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          landscape ? styles.scrollLandscape : styles.scrollPortrait,
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {landscape ? (
+          <>
+            <View style={styles.artCol}>{art}</View>
+            <View style={styles.infoCol}>{details}</View>
+          </>
         ) : (
-          <View style={[styles.spriteFallback, { backgroundColor: def.color }]} />
+          <View style={styles.portraitStack}>
+            {art}
+            {details}
+          </View>
         )}
-
-        <Text style={styles.level}>Livello {building.level}</Text>
-        <Text style={styles.meta}>HP {levelDef.hp}</Text>
-
-        {def.produces ? (
-          <Text style={styles.meta}>
-            Magazzino: {Math.floor(building.stored ?? 0)} /{' '}
-            {def.produces.capacity[building.level - 1] ?? def.produces.capacity[0]}{' '}
-            {def.produces.resource}
-          </Text>
-        ) : null}
-
-        {busy ? <Text style={styles.busy}>Costruzione / upgrade in corso…</Text> : null}
-
-        {nextLevel ? (
-          <Text style={styles.cost}>
-            Prossimo livello: {formatResourceAmount(nextLevel.buildCost.legna)} legna ·{' '}
-            {formatResourceAmount(nextLevel.buildCost.acqua)} acqua
-          </Text>
-        ) : null}
-
-        <View style={styles.actions}>
-          {def.produces ? (
-            <Pressable style={styles.btn} onPress={() => collect(building.instanceId)}>
-              <Text style={styles.btnText}>Raccogli</Text>
-            </Pressable>
-          ) : null}
-          {building.level < def.maxLevel ? (
-            <Pressable
-              style={[styles.btn, busy && styles.btnDisabled]}
-              onPress={() => upgrade(building.instanceId)}
-              disabled={busy}
-            >
-              <Text style={styles.btnText}>Upgrade</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -104,14 +150,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#4CAF50',
   },
   backBtn: {
     width: 44,
-    height: 44,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -124,28 +170,55 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  body: {
-    flex: 1,
+  scroll: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  scrollPortrait: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollLandscape: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 20,
     paddingHorizontal: 24,
-    gap: 10,
   },
-  sprite: { width: 160, height: 160 },
-  spriteFallback: { width: 120, height: 120, borderRadius: 12 },
-  level: { color: '#E8F5E9', fontSize: 20, fontWeight: '800' },
-  meta: { color: '#C8E6C9', fontSize: 14 },
-  busy: { color: '#FFE082', fontSize: 13, marginTop: 4 },
-  cost: { color: '#A5D6A7', fontSize: 12, textAlign: 'center', marginTop: 8 },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  portraitStack: {
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: 420,
+  },
+  artCol: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoCol: {
+    flex: 1,
+    minWidth: 200,
+    maxWidth: 360,
+    gap: 6,
+    justifyContent: 'center',
+  },
+  spriteFallback: { borderRadius: 12 },
+  level: { color: '#E8F5E9', fontSize: 18, fontWeight: '800' },
+  meta: { color: '#C8E6C9', fontSize: 13 },
+  busy: { color: '#FFE082', fontSize: 12, marginTop: 2 },
+  cost: { color: '#A5D6A7', fontSize: 12, marginTop: 4 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  actionsLandscape: { marginTop: 8 },
   btn: {
     backgroundColor: '#33691E',
-    paddingHorizontal: 22,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 10,
-    minWidth: 120,
+    minWidth: 110,
     alignItems: 'center',
   },
   btnDisabled: { opacity: 0.45 },
-  btnText: { color: '#F1F8E9', fontWeight: '800', fontSize: 15 },
+  btnText: { color: '#F1F8E9', fontWeight: '800', fontSize: 14 },
 });

@@ -21,8 +21,8 @@ const BARS: {
   {
     id: 'legna',
     name: 'Legna',
-    fill: '#E8B923',
-    iconBg: '#C9A227',
+    fill: '#C4783A',
+    iconBg: '#A65C2A',
     iconSource: LEGNA_ICON,
   },
   {
@@ -88,29 +88,31 @@ export function ResourceBarsHud() {
             accessibilityLabel={bar.name}
           >
             <View style={styles.barShell}>
-              <View
-                style={[
-                  styles.barFill,
-                  { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
-                ]}
-              />
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
+                  ]}
+                />
+              </View>
               <Text style={styles.amount} numberOfLines={1}>
                 {formatResourceAmount(amount)}
               </Text>
-            </View>
-            <View
-              style={[
-                styles.icon,
-                bar.iconSource
-                  ? styles.iconImageWrap
-                  : { backgroundColor: bar.iconBg, borderColor: bar.fill },
-              ]}
-            >
-              {bar.iconSource ? (
-                <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
-              ) : (
-                <Text style={styles.iconText}>{bar.icon}</Text>
-              )}
+              <View
+                style={[
+                  styles.icon,
+                  bar.iconSource
+                    ? styles.iconImageWrap
+                    : { backgroundColor: bar.iconBg, borderColor: bar.fill },
+                ]}
+              >
+                {bar.iconSource ? (
+                  <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.iconText}>{bar.icon}</Text>
+                )}
+              </View>
             </View>
           </Pressable>
         );
@@ -145,17 +147,19 @@ const styles = StyleSheet.create({
   barShell: {
     width: BAR_WIDTH,
     height: 26,
+    justifyContent: 'center',
+  },
+  barTrack: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 13,
     backgroundColor: 'rgba(20, 20, 20, 0.82)',
     borderWidth: 1.5,
     borderColor: 'rgba(180, 180, 180, 0.45)',
     overflow: 'hidden',
-    justifyContent: 'center',
-    marginRight: -6,
   },
   barFill: {
     position: 'absolute',
-    left: 0,
+    right: 0,
     top: 0,
     bottom: 0,
     borderRadius: 13,
@@ -166,16 +170,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
     textAlign: 'right',
-    paddingRight: 18,
+    paddingRight: 36,
     paddingLeft: 10,
     textShadowColor: 'rgba(0,0,0,0.75)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   icon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -184,8 +191,6 @@ const styles = StyleSheet.create({
   iconImageWrap: {
     backgroundColor: 'transparent',
     borderWidth: 0,
-    width: 34,
-    height: 34,
     borderRadius: 0,
   },
   iconImage: {
