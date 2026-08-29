@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,17 +13,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../src/ui/GameContext';
 import { IsometricWorld } from '../src/render/IsometricWorld';
 import { getMissionDef, getTroopDef } from '../src/sim/content';
+import { resolveTroopSprite } from '../src/render/assets';
+import { getPlayerTroopLevel } from '../src/sim/troopUpgrades';
 
 export default function MissionCombatScreen() {
   const { state, combat, deploy, autoDeploy, finishCombat } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedTroop, setSelectedTroop] = useState<string | null>(null);
-  const sideW = Math.min(300, Math.max(220, width * 0.32));
-  const mapW = width - sideW;
+  const bottomH = Math.max(88, Math.min(110, height * 0.28));
+  const mapH = Math.max(120, height - bottomH);
 
   useEffect(() => {
     if (!combat) router.replace('/missions');
   }, [combat]);
+
+  useEffect(() => {
+    if (!combat || combat.finished) return;
+    if (selectedTroop && combat.deployRemaining.some((u) => u.troopId === selectedTroop && u.count > 0)) {
+      return;
+    }
+    const first = combat.deployRemaining.find((u) => u.count > 0);
+    setSelectedTroop(first?.troopId ?? null);
+  }, [combat, selectedTroop]);
 
   useEffect(() => {
     if (combat?.finished) {
@@ -43,63 +55,102 @@ export default function MissionCombatScreen() {
   }
 
   const mission = getMissionDef(combat.missionId);
+  const remaining = combat.deployRemaining.filter((u) => u.count > 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.row}>
-        <IsometricWorld
-          state={state}
-          width={mapW}
-          height={height}
-          mode="combat"
-          combat={combat}
-          onTapTile={(gx, gy) => {
-            if (selectedTroop) deploy(selectedTroop, gx, gy);
-          }}
-        />
+      <View style={styles.wrap}>
+        <View style={[styles.mapWrap, { height: mapH }]}>
+          <IsometricWorld
+            state={state}
+            width={width}
+            height={mapH}
+            mode="combat"
+            combat={combat}
+            onTapTile={(gx, gy) => {
+              if (selectedTroop) deploy(selectedTroop, gx, gy);
+            }}
+          />
 
-        <View style={[styles.side, { width: sideW }]}>
-          <ScrollView contentContainerStyle={styles.sideContent}>
-            <Text style={styles.title}>{mission.name}</Text>
-            <Text style={styles.meta}>
-              {Math.ceil(combat.timeLeft)}s · {combat.destroyPct.toFixed(0)}% · {combat.stars}★
-            </Text>
+          <View style={styles.topHud} pointerEvents="box-none">
+            <View style={styles.topTitle}>
+              <Text style={styles.title} numberOfLines={1}>
+                {mission.name}
+              </Text>
+              <Text style={styles.meta}>
+                {Math.ceil(combat.timeLeft)}s · {combat.stars}★
+              </Text>
+            </View>
             {combat.finished ? (
               <Text style={styles.result}>
                 {combat.victory ? `Vittoria ${combat.stars}★` : 'Sconfitta'}
               </Text>
-            ) : null}
+            ) : (
+              <Text style={styles.hint}>Tocca la mappa per schierare</Text>
+            )}
+          </View>
 
-            <Text style={styles.hint}>Tocca la mappa per schierare</Text>
-
-            {combat.deployRemaining.map((u) => {
-              const t = getTroopDef(u.troopId);
-              const active = selectedTroop === u.troopId;
-              return (
-                <Pressable
-                  key={u.troopId}
-                  style={[styles.troop, active && styles.troopActive]}
-                  onPress={() => setSelectedTroop(u.troopId)}
-                >
-                  <Text style={styles.troopText}>
-                    {t.name} ×{u.count}
-                  </Text>
-                </Pressable>
-              );
-            })}
-
-            <Pressable style={styles.btn} onPress={autoDeploy}>
-              <Text style={styles.btnText}>Schiera tutto</Text>
-            </Pressable>
+          <View style={styles.aboveTroops} pointerEvents="box-none">
             <Pressable
-              style={[styles.btn, styles.secondary]}
+              style={styles.retreatBtn}
               onPress={() => {
                 finishCombat();
                 router.replace('/missions');
               }}
             >
-              <Text style={styles.btnText}>Ritirata</Text>
+              <Text style={styles.retreatText}>Ritirata</Text>
             </Pressable>
+
+            <View style={styles.aboveRight}>
+              <Text style={styles.damageText}>{combat.destroyPct.toFixed(0)}%</Text>
+              {!combat.finished && remaining.length > 0 ? (
+                <Pressable style={styles.autoBtn} onPress={autoDeploy}>
+                  <Text style={styles.autoText}>Schiera tutto</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.troopBar, { height: bottomH }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.troopRow}
+          >
+            {remaining.length === 0 ? (
+              <Text style={styles.emptyTroops}>Nessuna unità da schierare</Text>
+            ) : (
+              remaining.map((u) => {
+                const t = getTroopDef(u.troopId);
+                const level = getPlayerTroopLevel(state, u.troopId);
+                const sprite = resolveTroopSprite(t.spriteKey, level);
+                const active = selectedTroop === u.troopId;
+                return (
+                  <Pressable
+                    key={u.troopId}
+                    style={[styles.troopCard, active && styles.troopCardActive]}
+                    onPress={() => setSelectedTroop(u.troopId)}
+                  >
+                    <View style={[styles.countBadge, active && styles.countBadgeActive]}>
+                      <Text style={styles.countText}>×{u.count}</Text>
+                    </View>
+                    {sprite ? (
+                      <Image source={sprite} style={styles.troopSprite} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.troopNameFallback} numberOfLines={2}>
+                        {t.name}
+                      </Text>
+                    )}
+                    {sprite ? (
+                      <Text style={styles.troopName} numberOfLines={1}>
+                        {t.name}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })
+            )}
           </ScrollView>
         </View>
       </View>
@@ -109,34 +160,161 @@ export default function MissionCombatScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1B4332' },
-  row: { flex: 1, flexDirection: 'row' },
-  side: {
-    backgroundColor: 'rgba(10,20,12,0.96)',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: '#4CAF50',
+  wrap: { flex: 1 },
+  mapWrap: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  sideContent: { padding: 12, gap: 8 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1B4332' },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1B4332',
+  },
   text: { color: '#C8E6C9' },
-  title: { color: '#E8F5E9', fontSize: 16, fontWeight: '800' },
-  meta: { color: '#A5D6A7', marginBottom: 4 },
-  result: { color: '#FFE082', fontWeight: '800', fontSize: 15 },
-  hint: { color: '#DCEDC8', fontSize: 12, marginTop: 4 },
-  troop: {
-    backgroundColor: '#2E4A32',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  topHud: {
+    position: 'absolute',
+    top: 8,
+    left: 10,
+    right: 10,
+    gap: 4,
+  },
+  topTitle: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    maxWidth: '70%',
+  },
+  title: { color: '#E8F5E9', fontSize: 15, fontWeight: '800' },
+  meta: { color: '#A5D6A7', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  hint: {
+    alignSelf: 'flex-start',
+    color: '#DCEDC8',
+    fontSize: 11,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  result: {
+    alignSelf: 'flex-start',
+    color: '#FFE082',
+    fontWeight: '800',
+    fontSize: 15,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  troopActive: { backgroundColor: '#558B2F', borderWidth: 1, borderColor: '#DCEDC8' },
-  troopText: { color: '#F1F8E9', fontWeight: '700' },
-  btn: {
-    backgroundColor: '#2E7D32',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 4,
+  aboveTroops: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    bottom: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
-  secondary: { backgroundColor: '#5D4037' },
-  btnText: { color: '#FFF', fontWeight: '800' },
+  retreatBtn: {
+    backgroundColor: 'rgba(93,64,55,0.92)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  retreatText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
+  aboveRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  damageText: {
+    color: '#FFE082',
+    fontWeight: '900',
+    fontSize: 18,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  autoBtn: {
+    backgroundColor: 'rgba(46,125,50,0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  autoText: { color: '#FFF', fontWeight: '800', fontSize: 12 },
+  troopBar: {
+    backgroundColor: 'rgba(10,20,12,0.96)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#4CAF50',
+    justifyContent: 'center',
+  },
+  troopRow: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 10,
+    alignItems: 'center',
+    flexGrow: 1,
+  },
+  emptyTroops: { color: '#A5D6A7', fontSize: 12, alignSelf: 'center' },
+  troopCard: {
+    width: 78,
+    height: 72,
+    backgroundColor: '#2E4A32',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#3E5C42',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+    paddingBottom: 4,
+    paddingHorizontal: 4,
+    overflow: 'hidden',
+  },
+  troopCardActive: {
+    backgroundColor: '#558B2F',
+    borderColor: '#DCEDC8',
+  },
+  countBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    minWidth: 26,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  countBadgeActive: {
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderWidth: 1,
+    borderColor: '#FFF59D',
+  },
+  countText: { color: '#FFF', fontWeight: '900', fontSize: 11 },
+  troopSprite: { width: 44, height: 44 },
+  troopName: {
+    color: '#E8F5E9',
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  troopNameFallback: {
+    color: '#F1F8E9',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
 });
