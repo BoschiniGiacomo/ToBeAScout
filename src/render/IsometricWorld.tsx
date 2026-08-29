@@ -3,14 +3,19 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   Canvas,
-  Group,
   Image as SkiaImage,
   Path,
   Picture,
   RoundedRect,
   Skia,
 } from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue, runOnJS, withTiming, cancelAnimation } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  runOnJS,
+  withTiming,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import type { CombatState, GameState, PlacedBuilding } from '../sim/types';
 import { getBuildingDef, getTroopDef, META } from '../sim/content';
 import { canMove, canPlace, canStartMove } from '../sim/buildings';
@@ -755,17 +760,21 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       interacting
         ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
         : Gesture.Simultaneous(
-            Gesture.Exclusive(cameraPinch, Gesture.Exclusive(cameraPan, moveHold)),
+            cameraPinch,
+            Gesture.Exclusive(cameraPan, moveHold),
             tap,
           ),
     [interacting, placePointer, cameraPan, cameraPinch, moveHold, tap],
   );
 
-  const cameraTransform = useDerivedValue(() => [
-    { translateX: offsetX.value },
-    { translateY: offsetY.value },
-    { scale: scale.value },
-  ]);
+  /** Camera on RN layer — avoids Skia Group + Reanimated crash on Android during pan. */
+  const cameraStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value * scale.value },
+      { translateY: offsetY.value * scale.value },
+      { scale: scale.value },
+    ],
+  }));
 
   const buildingVisualKey = useMemo(
     () =>
@@ -923,8 +932,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
     <View style={[styles.wrap, { width, height }]}>
       <GestureDetector gesture={composed}>
         <View style={{ width, height }} collapsable={false}>
-          <Canvas style={{ width, height }}>
-            <Group transform={cameraTransform}>
+          <Animated.View style={[{ width, height }, cameraStyle]}>
+            <Canvas style={{ width, height }}>
               <Picture picture={terrainPicture} />
               {buildingsPicture ? <Picture picture={buildingsPicture} /> : null}
               {combatUnits.length > 0 ? (
@@ -941,8 +950,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
                   originY={originY}
                 />
               ) : null}
-            </Group>
-          </Canvas>
+            </Canvas>
+          </Animated.View>
         </View>
       </GestureDetector>
       {holdRing ? <MoveHoldRing x={holdRing.x} y={holdRing.y} progress={holdProgress} /> : null}
