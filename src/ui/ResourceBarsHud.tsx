@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGame } from './GameContext';
-import { getStorageCaps, formatResourceAmount } from '../sim/economy';
+import {
+  getStorageCaps,
+  getHourlyProduction,
+  formatResourceAmount,
+} from '../sim/economy';
 import type { ResourceId } from '../sim/types';
 
 const BAR_WIDTH = 148;
@@ -45,7 +49,8 @@ const BARS: {
 export function ResourceBarsHud() {
   const { state } = useGame();
   const caps = useMemo(() => getStorageCaps(state), [state]);
-  const [hint, setHint] = useState<string | null>(null);
+  const rates = useMemo(() => getHourlyProduction(state), [state]);
+  const [hintId, setHintId] = useState<ResourceId | null>(null);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -54,10 +59,10 @@ export function ResourceBarsHud() {
     };
   }, []);
 
-  const showName = (name: string) => {
-    setHint(name);
+  const showHint = (id: ResourceId) => {
+    setHintId(id);
     if (hintTimer.current) clearTimeout(hintTimer.current);
-    hintTimer.current = setTimeout(() => setHint(null), 1600);
+    hintTimer.current = setTimeout(() => setHintId(null), 2800);
   };
 
   return (
@@ -70,51 +75,59 @@ export function ResourceBarsHud() {
         },
       ]}
     >
-      {hint ? (
-        <View style={styles.hintBubble}>
-          <Text style={styles.hintText}>{hint}</Text>
-        </View>
-      ) : null}
       {BARS.map((bar) => {
         const amount = Math.floor(state.resources[bar.id]);
         const max = Math.max(1, caps[bar.id]);
         const pct = Math.min(1, Math.max(0, amount / max));
+        const open = hintId === bar.id;
         return (
-          <Pressable
-            key={bar.id}
-            style={styles.row}
-            onPress={() => showName(bar.name)}
-            accessibilityRole="button"
-            accessibilityLabel={bar.name}
-          >
-            <View style={styles.barShell}>
-              <View style={styles.barTrack}>
+          <View key={bar.id} style={styles.item}>
+            <Pressable
+              style={styles.row}
+              onPress={() => showHint(bar.id)}
+              accessibilityRole="button"
+              accessibilityLabel={bar.name}
+            >
+              <View style={styles.barShell}>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.amount} numberOfLines={1}>
+                  {formatResourceAmount(amount)}
+                </Text>
                 <View
                   style={[
-                    styles.barFill,
-                    { width: BAR_WIDTH * pct, backgroundColor: bar.fill },
+                    styles.icon,
+                    bar.iconSource
+                      ? styles.iconImageWrap
+                      : { backgroundColor: bar.iconBg, borderColor: bar.fill },
                   ]}
-                />
+                >
+                  {bar.iconSource ? (
+                    <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.iconText}>{bar.icon}</Text>
+                  )}
+                </View>
               </View>
-              <Text style={styles.amount} numberOfLines={1}>
-                {formatResourceAmount(amount)}
-              </Text>
-              <View
-                style={[
-                  styles.icon,
-                  bar.iconSource
-                    ? styles.iconImageWrap
-                    : { backgroundColor: bar.iconBg, borderColor: bar.fill },
-                ]}
-              >
-                {bar.iconSource ? (
-                  <Image source={bar.iconSource} style={styles.iconImage} resizeMode="contain" />
-                ) : (
-                  <Text style={styles.iconText}>{bar.icon}</Text>
-                )}
+            </Pressable>
+            {open ? (
+              <View style={styles.vignette}>
+                <Text style={styles.vignetteTitle}>{bar.name}</Text>
+                <Text style={styles.vignetteLine}>
+                  Max: {formatResourceAmount(max)}
+                </Text>
+                <Text style={styles.vignetteLine}>
+                  Produzione oraria: {formatResourceAmount(Math.floor(rates[bar.id]))}/h
+                </Text>
               </View>
-            </View>
-          </Pressable>
+            ) : null}
+          </View>
         );
       })}
     </View>
@@ -128,17 +141,30 @@ const styles = StyleSheet.create({
     gap: 6,
     alignItems: 'flex-end',
   },
-  hintBubble: {
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 2,
+  item: {
+    alignItems: 'flex-end',
   },
-  hintText: {
-    color: '#FFF',
-    fontWeight: '800',
+  vignette: {
+    marginTop: 4,
+    maxWidth: BAR_WIDTH + 20,
+    backgroundColor: 'rgba(0,0,0,0.88)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  vignetteTitle: {
+    color: '#FFF59D',
+    fontWeight: '900',
     fontSize: 13,
+    marginBottom: 3,
+  },
+  vignetteLine: {
+    color: '#E8F5E9',
+    fontWeight: '700',
+    fontSize: 11,
+    marginTop: 1,
   },
   row: {
     flexDirection: 'row',

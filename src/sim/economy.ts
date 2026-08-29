@@ -54,6 +54,21 @@ export function getStorageCaps(state: GameState): Resources {
   return caps;
 }
 
+/** Total hourly production from completed collectors on the village. */
+export function getHourlyProduction(state: GameState): Resources {
+  const rates: Resources = { legna: 0, acqua: 0, impegno: 0 };
+  const now = Date.now();
+  for (const b of state.buildings) {
+    if (b.buildEndsAt && b.buildEndsAt > now) continue;
+    const def = getBuildingDef(b.buildingId);
+    if (!def.produces) continue;
+    const perHour =
+      def.produces.perHour[b.level - 1] ?? def.produces.perHour[0] ?? 0;
+    rates[def.produces.resource] += perHour;
+  }
+  return rates;
+}
+
 export function formatResourceAmount(n: number): string {
   const v = Math.floor(Math.max(0, n));
   return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
