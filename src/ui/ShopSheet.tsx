@@ -185,19 +185,19 @@ export function ShopSheet({ visible, onClose }: Props) {
                           <View style={[styles.cardFallback, { backgroundColor: b.color }]} />
                         )}
                       </View>
-                      <View style={styles.cardFooter}>
-                        <View style={styles.footerMeta}>
-                          <View style={styles.footerLeft}>
-                            <Text style={styles.timeLabel}>Tempo</Text>
-                            <Text style={styles.timeValue}>{formatBuildDuration(buildTime)}</Text>
-                          </View>
-                          <View style={styles.footerRight}>
-                            <Text style={styles.ownedLabel}>Ne hai:</Text>
-                            <Text style={[styles.ownedCount, atLimit && styles.ownedCountMax]}>
-                              {owned}/{max}
-                            </Text>
-                          </View>
+                      <View style={styles.footerMeta}>
+                        <View style={styles.footerLeft}>
+                          <Text style={styles.timeLabel}>Tempo</Text>
+                          <Text style={styles.timeValue}>{formatBuildDuration(buildTime)}</Text>
                         </View>
+                        <View style={styles.footerRight}>
+                          <Text style={styles.ownedLabel}>Ne hai:</Text>
+                          <Text style={[styles.ownedCount, atLimit && styles.ownedCountMax]}>
+                            {owned}/{max}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardFooter}>
                         <CostRow cost={cost} />
                       </View>
                     </Pressable>
@@ -544,17 +544,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(20,20,20,0.85)',
     paddingVertical: 4,
     paddingHorizontal: 6,
-    alignItems: 'stretch',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.25)',
   },
   footerMeta: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     width: '100%',
+    paddingHorizontal: 8,
+    paddingTop: 2,
+    paddingBottom: 4,
+    backgroundColor: 'transparent',
   },
   footerLeft: {
     alignItems: 'flex-start',
@@ -565,27 +569,39 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   timeLabel: {
-    color: '#FFE082',
+    color: '#FFF8E1',
     fontSize: 10,
     fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   timeValue: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   ownedLabel: {
-    color: '#FFE082',
+    color: '#FFF8E1',
     fontSize: 10,
     fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   ownedCount: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   ownedCountMax: {
-    color: '#EF9A9A',
+    color: '#FFCDD2',
   },
   trainMeta: { color: '#FFE082', fontSize: 10, fontWeight: '700' },
   costRow: {
