@@ -530,9 +530,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
 
   const panTickGate = useSharedValue(0);
 
-  // DEBUG isolation flags — leave false until pan.alive appears in Metro.
-  const PAN_VISUAL = false;
-  const DEBUG_PAN_ONLY = true;
+  // Keep gesture overlay (not wrapping Canvas). Re-enable camera writes + pinch.
+  const PAN_VISUAL = true;
 
   const cameraPan = useMemo(
     () =>
@@ -548,12 +547,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           runOnJS(onPanBeginJS)();
         })
         .onUpdate((e) => {
-          // Log BEFORE any camera write — proves UI thread reached onUpdate.
-          if (panTickGate.value === 0) {
-            panTickGate.value = 1;
-            runOnJS(onPanTickJS)(offsetX.value, offsetY.value, scale.value);
-          }
-          if (!PAN_VISUAL) return;
           const s = scale.value > 0.01 ? scale.value : 1;
           const next = clampPan(
             startX.value + e.translationX / s,
@@ -566,8 +559,14 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             boundsMinY.value,
             boundsMaxY.value,
           );
-          offsetX.value = next.x;
-          offsetY.value = next.y;
+          if (PAN_VISUAL) {
+            offsetX.value = next.x;
+            offsetY.value = next.y;
+          }
+          if (panTickGate.value === 0) {
+            panTickGate.value = 1;
+            runOnJS(onPanTickJS)(next.x, next.y, s);
+          }
         })
         .onFinalize(() => {
           runOnJS(onPanEndJS)();
@@ -781,25 +780,12 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
   ]);
 
   const composed = useMemo(() => {
-    if (DEBUG_PAN_ONLY && !interacting) {
-      // Isolate: one gesture only — no pinch / long-press / tap race on Android.
-      return cameraPan;
+    if (interacting) {
+      return Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap);
     }
-    return interacting
-      ? Gesture.Simultaneous(Gesture.Exclusive(placePointer, cameraPan), tap)
-      : Gesture.Simultaneous(
-          cameraPinch,
-          Gesture.Exclusive(cameraPan, moveHold),
-          tap,
-        );
-  }, [
-    interacting,
-    placePointer,
-    cameraPan,
-    cameraPinch,
-    moveHold,
-    tap,
-  ]);
+    // Overlay keeps Canvas out of the touch path. Pinch activates only at 2 fingers.
+    return Gesture.Simultaneous(cameraPinch, cameraPan);
+  }, [interacting, placePointer, cameraPan, cameraPinch, tap]);
 
   /** Camera INSIDE Skia — Picture is world-sized; viewport Canvas must transform content, not the View. */
   const cameraTransform = useDerivedValue(() => [
