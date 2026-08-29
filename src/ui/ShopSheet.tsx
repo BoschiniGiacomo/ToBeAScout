@@ -51,6 +51,8 @@ function formatBuildDuration(sec: number): string {
   const h = Math.floor((s % 86400) / 3600);
   return h > 0 ? `${d}g ${h}H` : `${d}g`;
 }
+
+function CostRow({ cost }: { cost: Resources }) {
   return (
     <View style={styles.costRow}>
       {cost.legna > 0 ? (
