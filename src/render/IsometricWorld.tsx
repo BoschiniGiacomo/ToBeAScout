@@ -552,23 +552,11 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         .maxPointers(1)
         .activeOffsetX([-12, 12])
         .activeOffsetY([-12, 12])
-        .onBegin((e) => {
+        .onBegin(() => {
           startX.value = offsetX.value;
           startY.value = offsetY.value;
           panTickGate.value = 0;
           runOnJS(onPanBeginJS)();
-          if (interactingSV.value > 0) {
-            const g = eventToGrid(
-              e.x,
-              e.y,
-              offsetX.value,
-              offsetY.value,
-              scale.value,
-              worldOriginX.value,
-              worldOriginY.value,
-            );
-            runOnJS(reportHover)(g.x, g.y);
-          }
         })
         .onUpdate((e) => {
           const s = scale.value > 0.01 ? scale.value : 1;
@@ -591,18 +579,6 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
             panTickGate.value = 1;
             runOnJS(onPanTickJS)(next.x, next.y, s);
           }
-          if (interactingSV.value > 0) {
-            const g = eventToGrid(
-              e.x,
-              e.y,
-              offsetX.value,
-              offsetY.value,
-              scale.value,
-              worldOriginX.value,
-              worldOriginY.value,
-            );
-            runOnJS(reportHover)(g.x, g.y);
-          }
         })
         .onFinalize(() => {
           runOnJS(onPanEndJS)();
@@ -619,14 +595,10 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
       boundsMaxX,
       boundsMinY,
       boundsMaxY,
-      worldOriginX,
-      worldOriginY,
-      interactingSV,
       panTickGate,
       onPanBeginJS,
       onPanTickJS,
       onPanEndJS,
-      reportHover,
     ],
   );
 
@@ -916,17 +888,7 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
           {combatUnits.length > 0 ? (
             <UnitLayer units={combatUnits} originX={originX} originY={originY} />
           ) : null}
-          {interactGhostItem ? (
-            <BuildingGhost item={interactGhostItem} originX={originX} originY={originY} />
-          ) : null}
-          {previewCells ? (
-            <PreviewOverlay
-              cells={previewCells.cells}
-              valid={previewCells.valid}
-              originX={originX}
-              originY={originY}
-            />
-          ) : null}
+          {/* No live SkiaImage/Path under animated Group while placing — native crash on pan. */}
         </Group>
       </Canvas>
       <GestureDetector gesture={composed}>
@@ -937,8 +899,8 @@ const IsometricWorldInner = memo(function IsometricWorldInner({
         <View style={styles.placeBanner} pointerEvents="none">
           <Text style={styles.placeBannerText}>
             {relocating
-              ? 'Sposta · verde=ok · rosso=no · tocca per confermare'
-              : 'Trascina · verde=ok · rosso=no · tocca per confermare'}
+              ? 'Sposta · pan per guardare · tocca una cella libera'
+              : 'Piazza · pan/zoom ok · tocca una cella libera per confermare'}
           </Text>
         </View>
       ) : null}
